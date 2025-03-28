@@ -1,0 +1,6 @@
+# Generated content and temporary files
+/public/videos/
+/public/temp/
+# Backup files
+*.new
+*.bak
