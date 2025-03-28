@@ -7,6 +7,7 @@ import VoiceoverGeneration from "../components/VoiceoverGeneration";
 import ImagePromptGeneration from "../components/ImagePromptGeneration";
 import ImageGeneration from "../components/ImageGeneration";
 import TimedImageGeneration from "../components/TimedImageGeneration";
+import MusicGeneration from "../components/MusicGeneration";
 import VideoGeneration from "../components/VideoGeneration";
 import VideoPreview from "../components/VideoPreview";
 import ProgressStepper from "../components/ProgressStepper";
@@ -22,6 +23,7 @@ export default function Home() {
   const [imagePrompts, setImagePrompts] = useState<any[]>([]);
   const [timedImages, setTimedImages] = useState<{ timestamp: number; imageBase64: string }[]>([]);
   const [imageData, setImageData] = useState<string[]>([]);
+  const [musicData, setMusicData] = useState<{ musicUrl: string; musicPrompt: string } | null>(null);
   const [videoData, setVideoData] = useState<any>(null);
 
   // Steps of the workflow
@@ -30,6 +32,7 @@ export default function Home() {
     "Script Generation",
     "Voiceover Generation",
     "Image Generation",
+    "Music Generation",
     "Video Creation",
   ];
 
@@ -70,10 +73,16 @@ export default function Home() {
     setCurrentStep(4);
   };
 
+  // Handle music generation completion
+  const handleMusicGenerated = (data: { musicUrl: string; musicPrompt: string }) => {
+    setMusicData(data);
+    setCurrentStep(5);
+  };
+
   // Handle video generation completion
   const handleVideoGenerated = (data: any) => {
     setVideoData(data);
-    setCurrentStep(5);
+    setCurrentStep(6);
   };
 
   // Reset the workflow
@@ -85,13 +94,23 @@ export default function Home() {
     setImagePrompts([]);
     setTimedImages([]);
     setImageData([]);
+    setMusicData(null);
     setVideoData(null);
     setCurrentStep(0);
   };
 
   return (
     <main className="flex min-h-screen flex-col items-center p-4 md:p-8 lg:p-12 bg-gradient-to-br from-gray-900 to-slate-900">
-      <Toaster position="top-center" />
+      <Toaster 
+        position="bottom-right" 
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+        }}
+      />
       
       <div className="container max-w-5xl mx-auto space-y-8">
         <header className="text-center space-y-4">
@@ -146,17 +165,27 @@ export default function Home() {
             />
           )}
           
-          {currentStep === 4 && imageData.length > 0 && (
-            <VideoGeneration 
-              images={imageData} 
+          {currentStep === 4 && scriptData && imageData.length > 0 && voiceoverData && (
+            <MusicGeneration 
+              script={scriptData.script}
               audioBase64={voiceoverData.audioBase64}
-              timedImages={timedImages}
-              onVideoGenerated={handleVideoGenerated}
+              onMusicGenerated={handleMusicGenerated}
               onBack={() => setCurrentStep(3)}
             />
           )}
           
-          {currentStep === 5 && videoData && (
+          {currentStep === 5 && imageData.length > 0 && musicData && (
+            <VideoGeneration 
+              images={imageData} 
+              audioBase64={voiceoverData.audioBase64}
+              timedImages={timedImages}
+              backgroundMusic={musicData.musicUrl}
+              onVideoGenerated={handleVideoGenerated}
+              onBack={() => setCurrentStep(4)}
+            />
+          )}
+          
+          {currentStep === 6 && videoData && (
             <VideoPreview 
               videoUrl={videoData.videoUrl} 
               onReset={handleReset}

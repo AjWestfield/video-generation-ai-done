@@ -5,6 +5,7 @@ interface VideoGenerationProps {
   images: string[];
   audioBase64: string;
   timedImages?: { timestamp: number; imageBase64: string }[];
+  backgroundMusic?: string;
   onVideoGenerated: (videoData: any) => void;
   onBack: () => void;
 }
@@ -13,6 +14,7 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
   images,
   audioBase64,
   timedImages,
+  backgroundMusic,
   onVideoGenerated,
   onBack,
 }) => {
@@ -50,6 +52,7 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
           images,
           timedImages,
           audioBase64,
+          backgroundMusic,
           duration: 15, // Default duration in seconds
         }),
       });
@@ -87,11 +90,16 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white">Video Generation</h2>
         <p className="text-gray-400 mt-2">
-          Combining your {timedImages ? "timed " : ""}images and voiceover to create a seamless video...
+          Combining your {timedImages ? "timed " : ""}images, voiceover{backgroundMusic ? ", and background music" : ""} to create a seamless video...
         </p>
         {timedImages && (
           <p className="text-xs text-gray-500 mt-1">
             Using {timedImages.length} images with precise timestamps for better synchronization
+          </p>
+        )}
+        {backgroundMusic && (
+          <p className="text-xs text-gray-500 mt-1">
+            Adding AI-generated background music to enhance your video
           </p>
         )}
       </div>
@@ -135,7 +143,7 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
                   ) : progress < 50 ? (
                     "Converting images to video frames..."
                   ) : progress < 75 ? (
-                    "Adding audio track to video..."
+                    backgroundMusic ? "Mixing audio tracks..." : "Adding audio track to video..."
                   ) : (
                     "Finalizing and optimizing video..."
                   )}
