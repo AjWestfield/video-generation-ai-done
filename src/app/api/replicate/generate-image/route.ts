@@ -16,15 +16,16 @@ export async function POST(request: Request) {
 
   try {
     const output = await replicate.run(
-      "stability-ai/stable-diffusion:db21e45d3f7023abc2a46ee38a23973f6dce16bb082a930b0c49861f96d1e5bf",
+      process.env.REPLICATE_IMAGE_MODEL_ID || "black-forest-labs/flux-schnell",
       {
         input: {
-          prompt: prompt,
-          image_dimensions: "512x512",
+          prompt: `${prompt} | 16:9 aspect ratio, landscape orientation, widescreen format`,
+          width: 1920,
+          height: 1080,
           num_outputs: 1,
-          num_inference_steps: 50,
+          num_inference_steps: 4,
           guidance_scale: 7.5,
-          scheduler: "DPMSolverMultistep",
+          negative_prompt: "blurry, low quality, cartoon, 3d, painting, drawing, low resolution, square format, portrait orientation",
         },
       }
     );
