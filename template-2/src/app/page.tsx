@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import VideoIdeaForm from "../components/VideoIdeaForm";
 import ScriptGeneration from "../components/ScriptGeneration";
 import VoiceoverGeneration from "../components/VoiceoverGeneration";
@@ -17,16 +17,14 @@ import { SoundEffect } from "@/services/soundEffectService";
 
 export default function Home() {
   // Define the workflow states
-  const [currentStep, setCurrentStep] = useState(0);
-  const [videoIdea, setVideoIdea] = useState("");
-  const [videoDuration, setVideoDuration] = useState(1); // Default 1 minute
-  const [scriptData, setScriptData] = useState<any>(null);
-  const [voiceoverData, setVoiceoverData] = useState<any>(null);
-  const [imagePrompts, setImagePrompts] = useState<any[]>([]);
-  const [timedImages, setTimedImages] = useState<{ timestamp: number; imageBase64: string }[]>([]);
-  const [imageData, setImageData] = useState<string[]>([]);
-  const [musicData, setMusicData] = useState<{ musicUrl: string; musicPrompt: string } | null>(null);
-  const [soundEffectData, setSoundEffectData] = useState<SoundEffect[]>([]);
+  const [step, setStep] = useState(1);
+  const [videoIdea, setVideoIdea] = useState<string>("");
+  const [videoLength, setVideoLength] = useState<string>("short");
+  const [scriptData, setScriptData] = useState<{ script: string; title: string }>({ script: "", title: "" });
+  const [voiceoverData, setVoiceoverData] = useState<{ audioBase64: string; voiceId: string; script: string } | null>(null);
+  const [imageData, setImageData] = useState<{ timestamp: number; imageBase64: string }[]>([]);
+  const [musicData, setMusicData] = useState<string | null>(null);
+  const [soundEffectsData, setSoundEffectsData] = useState<Array<{ timestamp: number; type: string; audioBase64: string }>>([]);
   const [videoData, setVideoData] = useState<any>(null);
 
   // Steps of the workflow
@@ -39,68 +37,59 @@ export default function Home() {
     "Video Creation",
   ];
 
-  // Handle form submission for video idea
-  const handleVideoIdeaSubmit = (idea: string, duration: number) => {
+  // Function to handle navigation to prevent image regeneration
+  const handleNavigate = useCallback((targetStep: number) => {
+    setStep(targetStep);
+  }, []);
+
+  const handleVideoIdeaSubmit = useCallback((idea: string, length: string) => {
     setVideoIdea(idea);
-    setVideoDuration(duration);
-    setCurrentStep(1);
-  };
+    setVideoLength(length);
+    setStep(2);
+  }, []);
 
-  // Handle script generation completion
-  const handleScriptGenerated = (data: any) => {
+  const handleScriptGenerated = useCallback((data: { script: string; title: string }) => {
     setScriptData(data);
-    setCurrentStep(2);
-  };
+    setStep(3);
+  }, []);
 
-  // Handle voiceover generation completion
-  const handleVoiceoverGenerated = (data: any) => {
+  const handleVoiceoverGenerated = useCallback((data: { audioBase64: string; voiceId: string; script: string }) => {
     setVoiceoverData(data);
-    // Update script data if it was edited in the voiceover generation step
-    if (data.script && data.script !== scriptData.script) {
-      setScriptData({
-        ...scriptData,
-        script: data.script
-      });
-    }
-    setCurrentStep(3);
-  };
+    setStep(4);
+  }, []);
 
-  // Handle timed images generation completion
-  const handleTimedImagesGenerated = (images: { timestamp: number; imageBase64: string }[]) => {
-    setTimedImages(images);
-    
-    // Extract just the base64 images for the video generation step
-    const imageStrings = images.map(img => img.imageBase64);
-    setImageData(imageStrings);
-    
-    setCurrentStep(4);
-  };
+  const handleImagesGenerated = useCallback((images: { timestamp: number; imageBase64: string }[]) => {
+    setImageData(images);
+    setStep(5);
+  }, []);
 
-  // Handle music generation completion
-  const handleMusicGenerated = (data: { musicUrl: string; musicPrompt: string }) => {
-    setMusicData(data);
-    setCurrentStep(5);
-  };
+  const handleMusicGenerated = useCallback((data: { musicUrl: string; musicPrompt: string }) => {
+    setMusicData(data.musicUrl);
+    setStep(6);
+  }, []);
+
+  const handleSoundEffectsGenerated = useCallback((soundEffects: Array<{ timestamp: number; type: string; audioBase64: string }>) => {
+    setSoundEffectsData(soundEffects);
+    setStep(7);
+  }, []);
 
   // Handle video generation completion
   const handleVideoGenerated = (data: any) => {
     setVideoData(data);
-    setCurrentStep(6);
+    setStep(8);
   };
 
   // Reset the workflow
   const handleReset = () => {
     setVideoIdea("");
-    setVideoDuration(1);
-    setScriptData(null);
+    setVideoLength("short");
+    setScriptData({ script: "", title: "" });
     setVoiceoverData(null);
-    setImagePrompts([]);
-    setTimedImages([]);
     setImageData([]);
     setMusicData(null);
-    setSoundEffectData([]);
+    setSoundEffectsData([]);
     setVideoData(null);
-    setCurrentStep(0);
+    setStep(1);
   };
 
   return (
@@ -134,71 +123,77 @@ export default function Home() {
 
         <ProgressStepper 
           steps={steps} 
-          currentStep={currentStep} 
-          onStepClick={(step) => {
-            // Only allow going back to previous steps, not skipping ahead
-            if (step < currentStep) {
-              setCurrentStep(step);
-            }
-          }} 
+          currentStep={step} 
+          onStepClick={handleNavigate} 
         />
 
         <div className="bg-glass rounded-xl p-3 md:p-5 shadow-xl border border-[rgba(var(--accent-blue),0.15)] box-glow relative">
           <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-cyan),0.5)] to-transparent"></div>
           <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-blue),0.3)] to-transparent"></div>
           
-          {currentStep === 0 && (
+          {step === 1 && (
             <VideoIdeaForm onSubmit={handleVideoIdeaSubmit} />
           )}
           
-          {currentStep === 1 && (
+          {step === 2 && (
             <ScriptGeneration 
               videoIdea={videoIdea}
-              videoDuration={videoDuration}
+              videoLength={videoLength}
               onScriptGenerated={handleScriptGenerated}
-              onBack={() => setCurrentStep(0)}
+              onBack={() => setStep(1)}
             />
           )}
           
-          {currentStep === 2 && scriptData && (
+          {step === 3 && scriptData && (
             <VoiceoverGeneration 
               script={scriptData.script} 
               onVoiceoverGenerated={handleVoiceoverGenerated}
-              onBack={() => setCurrentStep(1)}
+              onBack={() => setStep(2)}
               autoGenerate={false}
             />
           )}
           
-          {currentStep === 3 && scriptData && voiceoverData && (
+          {step === 4 && scriptData && voiceoverData && (
             <TimedImageGeneration 
               script={scriptData.script}
               audioBase64={voiceoverData.audioBase64}
-              onImagesGenerated={handleTimedImagesGenerated}
-              onBack={() => setCurrentStep(2)}
+              onImagesGenerated={handleImagesGenerated}
+              onBack={() => setStep(3)}
             />
           )}
           
-          {currentStep === 4 && scriptData && imageData.length > 0 && voiceoverData && (
+          {step === 5 && scriptData && imageData.length > 0 && (
             <MusicGeneration 
               script={scriptData.script}
-              audioBase64={voiceoverData.audioBase64}
+              audioBase64={voiceoverData?.audioBase64}
               onMusicGenerated={handleMusicGenerated}
-              onBack={() => setCurrentStep(3)}
+              onBack={() => setStep(4)}
             />
           )}
           
-          {currentStep === 5 && imageData.length > 0 && musicData && (
+          {step === 6 && imageData.length > 0 && musicData && (
+            <SoundEffectGeneration
+              script={scriptData.script}
+              voiceoverAudio={voiceoverData?.audioBase64}
+              onSoundEffectsGenerated={handleSoundEffectsGenerated}
+              onBack={() => setStep(5)}
+            />
+          )}
+          
+          {step === 7 && imageData.length > 0 && musicData && (
             <VideoGeneration 
-              images={imageData} 
-              audioBase64={voiceoverData.audioBase64}
-              timedImages={timedImages}
-              backgroundMusic={musicData.musicUrl}
+              script={scriptData.script}
+              title={scriptData.title}
+              voiceoverAudio={voiceoverData?.audioBase64}
+              images={imageData}
+              musicAudio={musicData}
+              soundEffects={soundEffectsData}
               onVideoGenerated={handleVideoGenerated}
-              onBack={() => setCurrentStep(4)}
+              onBack={() => setStep(6)}
             />
           )}
           
-          {currentStep === 6 && videoData && (
+          {step === 8 && videoData && (
             <VideoPreview 
               videoUrl={videoData.videoUrl} 
               onReset={handleReset}

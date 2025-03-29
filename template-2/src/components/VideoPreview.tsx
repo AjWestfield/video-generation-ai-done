@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 
 interface VideoPreviewProps {
@@ -8,11 +8,24 @@ interface VideoPreviewProps {
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({ videoUrl, onReset }) => {
   const [copying, setCopying] = useState(false);
+  const [isFileUrl, setIsFileUrl] = useState(false);
+  const [fullVideoUrl, setFullVideoUrl] = useState("");
+
+  useEffect(() => {
+    // Check if the videoUrl is a path or a base64 data URL
+    if (videoUrl.startsWith('/')) {
+      setIsFileUrl(true);
+      setFullVideoUrl(`${window.location.origin}${videoUrl}`);
+    } else {
+      setIsFileUrl(false);
+      setFullVideoUrl(videoUrl);
+    }
+  }, [videoUrl]);
 
   const handleDownload = () => {
     // Create an anchor element to trigger download
     const a = document.createElement("a");
-    a.href = videoUrl;
+    a.href = fullVideoUrl;
     a.download = `ai-generated-video-${Date.now()}.mp4`;
     document.body.appendChild(a);
     a.click();
@@ -24,9 +37,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ videoUrl, onReset }) => {
   const handleCopyLink = async () => {
     try {
       setCopying(true);
-      // Get the full URL including host
-      const fullUrl = `${window.location.origin}${videoUrl}`;
-      await navigator.clipboard.writeText(fullUrl);
+      await navigator.clipboard.writeText(fullVideoUrl);
       toast.success("Video URL copied to clipboard!");
     } catch (err) {
       console.error("Failed to copy:", err);
@@ -50,7 +61,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ videoUrl, onReset }) => {
           <video 
             controls 
             className="absolute top-0 left-0 w-full h-full object-contain bg-black" 
-            src={videoUrl}
+            src={fullVideoUrl}
             poster="/video-poster.png"
             width="1920"
             height="1080"

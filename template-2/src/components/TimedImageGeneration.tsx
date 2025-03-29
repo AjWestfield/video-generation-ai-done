@@ -321,6 +321,63 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
     }
   };
 
+  const handleRegenerateImage = async (timestamp: number, prompt: string) => {
+    if (!timestamp || !prompt) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    const loadingToastId = showToast(`Regenerating image at ${formatTimestamp(timestamp)}...`, 'loading');
+
+    try {
+      const response = await fetch("/api/replicate/generate-timed-images", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompts: [{ timestamp, prompt }],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to regenerate image");
+      }
+
+      const data = await response.json();
+      
+      if (!data.results || !Array.isArray(data.results) || data.results.length === 0) {
+        throw new Error("No image was generated");
+      }
+      
+      // Replace the image at the specific timestamp
+      setGeneratedImages(prev => prev.map(img => 
+        img.timestamp === timestamp 
+          ? { timestamp, imageBase64: data.results[0].imageBase64 }
+          : img
+      ));
+      
+      // Update the focus image with the new image if in focus view
+      if (focusImage && focusImage.timestamp === timestamp) {
+        setFocusImage({
+          ...focusImage,
+          imageBase64: data.results[0].imageBase64
+        });
+      }
+      
+      setLoading(false);
+      toast.dismiss(loadingToastId);
+      showToast("Image regenerated successfully", 'success');
+    } catch (err) {
+      console.error("Error regenerating image:", err);
+      setError((err as Error).message);
+      setLoading(false);
+      toast.dismiss(loadingToastId);
+      showToast(`Failed to regenerate image: ${(err as Error).message}`, 'error');
+    }
+  };
+
   if (analyzing) {
     return (
       <div className="space-y-3">
@@ -537,7 +594,22 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
                 />
               </div>
               <div className="p-3 border-t border-[rgba(var(--accent-blue),0.2)] bg-[rgba(15,20,30,0.5)] overflow-y-auto max-h-[40vh]">
-                <h4 className="text-sm font-medium text-[rgba(var(--accent-cyan),0.9)] mb-1">Prompt:</h4>
+                <div className="flex justify-between items-center mb-1">
+                  <h4 className="text-sm font-medium text-[rgba(var(--accent-cyan),0.9)]">Prompt:</h4>
+                  <button
+                    onClick={() => {
+                      console.log("Regenerating image with timestamp:", focusImage.timestamp, "and prompt:", focusImage.prompt);
+                      handleRegenerateImage(focusImage.timestamp, focusImage.prompt);
+                    }}
+                    disabled={loading}
+                    className="px-2 py-1 text-xs bg-[rgba(var(--accent-cyan),0.8)] text-white rounded-md hover:bg-[rgba(var(--accent-cyan),0.9)] transition-all duration-300 flex items-center space-x-1"
+                  >
+                    <span>Regenerate</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
                 <p className="text-sm text-gray-300">{focusImage.prompt}</p>
               </div>
             </div>
@@ -563,10 +635,23 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
               
               {/* Right side - Prompt details */}
               <div className="w-5/12 flex flex-col bg-[rgba(15,20,30,0.8)] border-l border-[rgba(var(--accent-blue),0.2)]">
-                <div className="p-4 border-b border-[rgba(var(--accent-blue),0.2)]">
+                <div className="p-4 border-b border-[rgba(var(--accent-blue),0.2)] flex justify-between items-center">
                   <h3 className="text-lg font-medium text-[rgba(var(--accent-cyan),1)]">
                     Image at {formatTimestamp(focusImage.timestamp)}
                   </h3>
+                  <button
+                    onClick={() => {
+                      console.log("Regenerating image with timestamp:", focusImage.timestamp, "and prompt:", focusImage.prompt);
+                      handleRegenerateImage(focusImage.timestamp, focusImage.prompt);
+                    }}
+                    disabled={loading}
+                    className="px-3 py-1 text-sm bg-[rgba(var(--accent-cyan),0.8)] text-white rounded-md hover:bg-[rgba(var(--accent-cyan),0.9)] transition-all duration-300 flex items-center space-x-1"
+                  >
+                    <span>Regenerate</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
                 </div>
                 <div className="p-4 overflow-y-auto flex-1">
                   <h4 className="text-sm font-medium text-[rgba(var(--accent-cyan),0.9)] mb-2">Prompt:</h4>

@@ -1,0 +1,9 @@
+file '/Users/andersonwestfield/Documents/futureai/template-2/test-ffmpeg/test-image-0.png'
+duration 1
+file '/Users/andersonwestfield/Documents/futureai/template-2/test-ffmpeg/test-image-1.png'
+duration 1
+file '/Users/andersonwestfield/Documents/futureai/template-2/test-ffmpeg/test-image-2.png'
+duration 1
+file '/Users/andersonwestfield/Documents/futureai/template-2/test-ffmpeg/test-image-3.png'
+duration 1
+file '/Users/andersonwestfield/Documents/futureai/template-2/test-ffmpeg/test-image-3.png'

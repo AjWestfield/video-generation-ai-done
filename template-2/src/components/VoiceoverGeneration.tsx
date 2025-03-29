@@ -19,25 +19,17 @@ interface Voice {
   recommended?: boolean;
 }
 
-// Reduced to 6 best storytelling voices including Michael C. Vincent and Josh
+// Expanded voice options including a variety of styles
 const VOICES: Voice[] = [
-  // Premium storytelling voices
+  // Standard voices
   {
-    id: "XrExE9yKIg1WjnnlVkGX",
-    name: "Matilda",
-    description: "Warm, young female voice with an American accent",
-    category: 'premium',
-    tags: ['storytelling', 'warm', 'young'],
-    previewText: "Welcome to this haunting tale of mystery and suspense.",
+    id: "TxGEqnHWrfWFTfGW9XjX",
+    name: "Michael C. Vincent",
+    description: "Clear male voice with an authoritative tone",
+    category: 'standard',
+    tags: ['clear', 'authoritative', 'storytelling'],
+    previewText: "What I'm about to tell you defies all logical explanation.",
     recommended: true
-  },
-  {
-    id: "flq6f7yk4E4fJM5XTYuZ",
-    name: "Michael",
-    description: "Old male voice with an American accent",
-    category: 'premium',
-    tags: ['storytelling', 'old', 'deep'],
-    previewText: "Listen closely as I share a story that will touch your heart."
   },
   {
     id: "21m00Tcm4TlvDq8ikWAM",
@@ -55,22 +47,46 @@ const VOICES: Voice[] = [
     tags: ['deep', 'smooth', 'storytelling'],
     previewText: "The night was dark, and the winds howled through the trees."
   },
+  // New voices
   {
-    id: "TxGEqnHWrfWFTfGW9XjX",
-    name: "Michael C. Vincent",
-    description: "Clear male voice with an authoritative tone",
-    category: 'standard',
-    tags: ['clear', 'authoritative', 'storytelling'],
-    previewText: "What I'm about to tell you defies all logical explanation.",
-    recommended: true
+    id: "fCxG8OHm4STbIsWe4aT9",
+    name: "Adam",
+    description: "Professional male voice with natural intonation",
+    category: 'premium',
+    tags: ['professional', 'clear', 'natural'],
+    previewText: "The technology we're developing today will shape our tomorrow."
   },
   {
-    id: "5Q0t7uMcjvnagumLfvZi",
-    name: "Paul",
-    description: "Middle-aged male voice with an American accent, reporter style",
+    id: "j9jfwdrw7BRfcR43Qohk",
+    name: "Frederick Surrey",
+    description: "Expressive male voice with emotional range",
     category: 'premium',
-    tags: ['storytelling', 'documentary', 'reporter'],
-    previewText: "In the shadows of that old house, something waited for me."
+    tags: ['expressive', 'emotional', 'storytelling'],
+    previewText: "Every memory holds a piece of who we truly are."
+  },
+  {
+    id: "EiNlNiXeDU1pqqOPrYMO",
+    name: "Daniel",
+    description: "Warm male voice with a conversational tone",
+    category: 'standard',
+    tags: ['warm', 'conversational', 'friendly'],
+    previewText: "Let me tell you about an incredible discovery we made last week."
+  },
+  {
+    id: "NFG5qt843uXKj4pFvR7C",
+    name: "Adam Stone",
+    description: "Professional male voice with a confident delivery",
+    category: 'premium',
+    tags: ['professional', 'confident', 'clear'],
+    previewText: "Breathe deeply and let your worries fade away as we begin."
+  },
+  {
+    id: "ZF6FPAbjXT4488VcRRnw",
+    name: "Amelia",
+    description: "Elegant female voice with a sophisticated tone",
+    category: 'standard',
+    tags: ['elegant', 'sophisticated', 'clear'],
+    previewText: "The decisions we make today will echo through generations."
   }
 ];
 
@@ -78,7 +94,7 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
   script,
   onVoiceoverGenerated,
   onBack,
-  autoGenerate = true,
+  autoGenerate = false,
 }) => {
   const [loading, setLoading] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(null);
@@ -116,15 +132,13 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
     }
   }, [script]);
 
-  // Auto-select recommended voice based on script analysis
+  // Auto-select recommended voice based on script analysis but don't auto-generate
   useEffect(() => {
-    if (scriptAnalysis && recommendedVoices.length > 0 && !selectedVoice && autoGenerate) {
+    if (scriptAnalysis && recommendedVoices.length > 0 && !selectedVoice) {
       const recommendedVoice = recommendedVoices[0]?.id;
       if (recommendedVoice) {
         setSelectedVoice(recommendedVoice);
-        if (autoGenerate) {
-          generateVoiceover(recommendedVoice);
-        }
+        // Removed auto-generation here
       }
     }
   }, [scriptAnalysis, recommendedVoices]);
@@ -142,14 +156,15 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
     };
   }, [audioElement, previewAudio]);
 
+  // Modified to prevent automatic voice generation
   useEffect(() => {
-    // Auto-generate with default voice if autoGenerate is true
+    // Auto-select default voice if autoGenerate is true, but don't auto-generate
     if (autoGenerate && !loading && !audioData && !error && !analyzingScript && !scriptAnalysis) {
-      // Use the first premium voice by default
+      // Use the first premium voice by default for selection only
       const defaultVoice = VOICES.find(voice => voice.category === 'premium')?.id;
       if (defaultVoice) {
         setSelectedVoice(defaultVoice);
-        generateVoiceover(defaultVoice);
+        // Removed auto-generation here
       }
     }
   }, [autoGenerate, script, analyzingScript, scriptAnalysis]);
@@ -731,11 +746,9 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
                       ? "bg-[rgba(var(--accent-blue),0.2)] border border-[rgba(var(--accent-blue),0.5)] box-glow"
                       : "bg-[rgba(20,25,40,0.5)] border border-[rgba(40,50,80,0.2)] hover:border-[rgba(var(--accent-blue),0.3)]"
                   }`}
+                  onClick={() => handleVoiceSelect(voice.id)}
                 >
-                  <div 
-                    className="flex justify-between items-center"
-                    onClick={() => handleVoiceSelect(voice.id)}
-                  >
+                  <div className="flex justify-between items-center">
                     <div className="flex items-center">
                       <h3 className="font-medium text-sm text-white">{voice.name}</h3>
                       {voice.recommended && (
@@ -760,7 +773,10 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
                   </div>
                   <div className="mt-2 flex justify-between items-center">
                     <button
-                      onClick={() => generateVoicePreview(voice.id)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent triggering the parent onClick
+                        generateVoicePreview(voice.id);
+                      }}
                       className="text-xs px-2 py-1 bg-[rgba(var(--accent-cyan),0.8)] text-white rounded-md hover:bg-[rgba(var(--accent-cyan),0.9)] transition-all duration-300 flex items-center space-x-1"
                       disabled={previewLoading === voice.id}
                     >
@@ -784,16 +800,15 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
                         </svg></>
                       )}
                     </button>
-                    <button
-                      onClick={() => handleVoiceSelect(voice.id)}
-                      className={`text-xs px-2 py-1 ${
-                        selectedVoice === voice.id 
-                          ? 'bg-[rgba(var(--accent-blue),0.8)]' 
-                          : 'bg-[rgba(40,50,70,0.8)]'
-                      } text-white rounded-md hover:bg-opacity-90 transition-all duration-300`}
-                    >
-                      {selectedVoice === voice.id ? "Selected" : "Select"}
-                    </button>
+                    {selectedVoice === voice.id ? (
+                      <span className="text-xs px-2 py-1 bg-[rgba(var(--accent-blue),0.8)] text-white rounded-md">
+                        Selected
+                      </span>
+                    ) : (
+                      <span className="text-xs px-2 py-1 bg-[rgba(40,50,70,0.8)] text-white rounded-md">
+                        Select
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
