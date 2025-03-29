@@ -16,8 +16,10 @@ interface Voice {
   preview?: string;
   tags?: string[];
   previewText?: string;
+  recommended?: boolean;
 }
 
+// Reduced to 6 best storytelling voices including Michael C. Vincent and Josh
 const VOICES: Voice[] = [
   // Premium storytelling voices
   {
@@ -26,7 +28,8 @@ const VOICES: Voice[] = [
     description: "Warm, young female voice with an American accent",
     category: 'premium',
     tags: ['storytelling', 'warm', 'young'],
-    previewText: "Welcome to this haunting tale of mystery and suspense."
+    previewText: "Welcome to this haunting tale of mystery and suspense.",
+    recommended: true
   },
   {
     id: "flq6f7yk4E4fJM5XTYuZ",
@@ -45,61 +48,29 @@ const VOICES: Voice[] = [
     previewText: "I never believed in ghosts until that night."
   },
   {
-    id: "piTKgcLEGmPE4e6mEKli",
-    name: "Nicole",
-    description: "Whispering, young female voice with an American accent",
-    category: 'premium',
-    tags: ['storytelling', 'whispering', 'intimate'],
-    previewText: "The shadows moved in ways that defied explanation."
-  },
-  {
-    id: "5Q0t7uMcjvnagumLfvZi",
-    name: "Paul",
-    description: "Middle-aged male voice with an American accent, ground reporter style",
-    category: 'premium',
-    tags: ['storytelling', 'documentary', 'reporter'],
-    previewText: "In the shadows of that old house, something waited for me."
-  },
-  // Standard voices
-  {
-    id: "EXAVITQu4vr4xnSDxMaL",
-    name: "Sarah",
-    description: "Warm female voice with a natural tone",
-    category: 'standard',
-    tags: ['clear', 'friendly'],
-    previewText: "Let me tell you about something strange that happened to me."
-  },
-  {
     id: "onwK4e9ZLuTAKqWW03F9",
     name: "Josh",
     description: "Deep male voice with a smooth delivery",
     category: 'standard',
-    tags: ['deep', 'smooth'],
+    tags: ['deep', 'smooth', 'storytelling'],
     previewText: "The night was dark, and the winds howled through the trees."
-  },
-  {
-    id: "N2lVS1w4EtoT3dr4eOWO",
-    name: "Emma",
-    description: "British female with a professional tone",
-    category: 'standard',
-    tags: ['british', 'professional'],
-    previewText: "As I walked down the abandoned corridor, I heard footsteps behind me."
   },
   {
     id: "TxGEqnHWrfWFTfGW9XjX",
     name: "Michael C. Vincent",
     description: "Clear male voice with an authoritative tone",
     category: 'standard',
-    tags: ['clear', 'authoritative'],
-    previewText: "What I'm about to tell you defies all logical explanation."
+    tags: ['clear', 'authoritative', 'storytelling'],
+    previewText: "What I'm about to tell you defies all logical explanation.",
+    recommended: true
   },
   {
-    id: "D38z5RcWu1voky8WS1ja",
-    name: "Grace",
-    description: "Calm female voice ideal for narration",
-    category: 'standard',
-    tags: ['calm', 'narration'],
-    previewText: "I felt a chill run down my spine as I entered the room."
+    id: "5Q0t7uMcjvnagumLfvZi",
+    name: "Paul",
+    description: "Middle-aged male voice with an American accent, reporter style",
+    category: 'premium',
+    tags: ['storytelling', 'documentary', 'reporter'],
+    previewText: "In the shadows of that old house, something waited for me."
   }
 ];
 
@@ -114,29 +85,23 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
   const [audioData, setAudioData] = useState<string | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filterCategory, setFilterCategory] = useState<'all' | 'premium' | 'standard' | 'indian' | 'african'>('all');
+  const [filterCategory, setFilterCategory] = useState<'all' | 'premium' | 'standard'>('all');
   const [previewLoading, setPreviewLoading] = useState<string | null>(null);
   const [previewAudio, setPreviewAudio] = useState<{ [key: string]: HTMLAudioElement }>({});
   const [previewData, setPreviewData] = useState<{ [key: string]: string }>({});
   const [shortPreview, setShortPreview] = useState(true);
-  // New states for script analysis
   const [scriptAnalysis, setScriptAnalysis] = useState<any>(null);
   const [analyzingScript, setAnalyzingScript] = useState(false);
   const [recommendedVoices, setRecommendedVoices] = useState<Voice[]>([]);
-  
-  // States for play/pause controls
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [previewPlayState, setPreviewPlayState] = useState<{ [key: string]: boolean }>({});
-  
-  // New states for audio player
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const progressBarRef = useRef<HTMLDivElement>(null);
-
-  // Script editing states
   const [editableScript, setEditableScript] = useState<string>(script);
   const [showScriptEditor, setShowScriptEditor] = useState<boolean>(false);
   const [scriptWordCount, setScriptWordCount] = useState<number>(0);
+  
+  const progressBarRef = useRef<HTMLDivElement>(null);
 
   // Set initial script and word count
   useEffect(() => {
@@ -631,29 +596,27 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
 
   const filteredVoices = filterCategory === 'all' 
     ? VOICES 
-    : filterCategory === 'indian'
-    ? VOICES.filter(voice => voice.tags && voice.tags.includes('indian'))
-    : filterCategory === 'african'
-    ? VOICES.filter(voice => voice.tags && voice.tags.includes('african'))
     : VOICES.filter(voice => voice.category === filterCategory);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-4">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Generate Voiceover</h2>
-        <p className="text-gray-400 mt-2">
+        <h2 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[rgba(var(--accent-cyan),1)] to-[rgba(var(--accent-blue),1)] text-glow">
+          Generate Voiceover
+        </h2>
+        <p className="text-gray-300 mt-1 text-xs md:text-sm">
           Choose a voice for your video narration
         </p>
-        <div className="flex justify-center mt-2 space-x-4">
+        <div className="flex justify-center mt-2 space-x-2">
           <button
             onClick={() => setShortPreview(!shortPreview)}
-            className="text-xs px-3 py-1 bg-gray-700 text-gray-300 rounded-full hover:bg-gray-600 transition-colors"
+            className="text-xs px-2 py-1 bg-[rgba(20,25,40,0.8)] text-gray-300 rounded-full hover:bg-[rgba(30,35,50,0.9)] transition-all border border-[rgba(var(--accent-blue),0.3)]"
           >
             {shortPreview ? "Using short previews" : "Using full previews"}
           </button>
           <button
             onClick={() => setShowScriptEditor(!showScriptEditor)}
-            className="text-xs px-3 py-1 bg-gray-700 text-gray-300 rounded-full hover:bg-gray-600 transition-colors"
+            className="text-xs px-2 py-1 bg-[rgba(20,25,40,0.8)] text-gray-300 rounded-full hover:bg-[rgba(30,35,50,0.9)] transition-all border border-[rgba(var(--accent-blue),0.3)]"
           >
             {showScriptEditor ? "Hide script editor" : "Show script editor"}
           </button>
@@ -662,23 +625,24 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
 
       {/* Script Editor Section */}
       {showScriptEditor && (
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div className="bg-glass-darker rounded-lg p-3 border border-[rgba(var(--accent-blue),0.2)] box-glow relative">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-cyan),0.3)] to-transparent"></div>
           <div className="flex justify-between items-center mb-2">
-            <h3 className="text-lg font-medium text-white">Script Editor</h3>
-            <div className="text-sm text-gray-400">
-              Word count: {scriptWordCount}
+            <h3 className="text-base font-medium text-[rgba(var(--accent-cyan),1)]">Script Editor</h3>
+            <div className="text-xs text-gray-300">
+              Word count: <span className="text-[rgba(var(--accent-cyan),0.9)]">{scriptWordCount}</span>
             </div>
           </div>
           <textarea
             value={editableScript}
             onChange={handleScriptChange}
-            className="w-full h-64 bg-gray-900 text-white border border-gray-700 rounded-lg p-3 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+            className="w-full h-48 bg-[rgba(15,20,35,0.5)] text-gray-200 border border-[rgba(var(--accent-blue),0.3)] rounded-lg p-2 text-sm focus:border-[rgba(var(--accent-cyan),0.8)] focus:ring-1 focus:ring-[rgba(var(--accent-cyan),0.5)] focus:outline-none custom-scrollbar"
             placeholder="Your script content..."
           />
           <div className="mt-2 flex justify-end">
             <button
               onClick={handleScriptSave}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-3 py-1.5 bg-[rgba(var(--accent-blue),0.8)] text-white text-xs font-medium rounded-lg hover:bg-[rgba(var(--accent-blue),1)] transition-all duration-300 button-glow"
             >
               Update Script
             </button>
@@ -687,39 +651,39 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
       )}
 
       {loading ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="text-center">
-            <p className="text-gray-400 mt-2">
+            <p className="text-gray-300 mt-1 text-sm">
               Generating voiceover...
             </p>
           </div>
 
-          <div className="flex justify-center my-8">
-            <div className="animate-pulse flex space-x-4">
-              <div className="h-12 w-12 bg-blue-600 rounded-full animate-bounce"></div>
-              <div className="h-12 w-12 bg-indigo-600 rounded-full animate-bounce animation-delay-200"></div>
-              <div className="h-12 w-12 bg-purple-600 rounded-full animate-bounce animation-delay-400"></div>
+          <div className="flex justify-center my-4">
+            <div className="flex space-x-4">
+              <div className="h-10 w-10 bg-[rgba(var(--accent-blue),0.8)] rounded-full animate-bounce"></div>
+              <div className="h-10 w-10 bg-[rgba(var(--accent-cyan),0.8)] rounded-full animate-bounce animation-delay-200"></div>
+              <div className="h-10 w-10 bg-[rgba(var(--accent-purple),0.8)] rounded-full animate-bounce animation-delay-400"></div>
             </div>
           </div>
         </div>
       ) : error ? (
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="text-center">
-            <p className="text-red-500 mt-2">
+            <p className="text-red-400 mt-1 text-sm">
               {error}
             </p>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex gap-2">
             <button
               onClick={onBack}
-              className="flex-1 py-2 px-4 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors"
+              className="flex-1 py-2 px-3 bg-[rgba(60,70,85,0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(70,80,95,0.9)] transition-all duration-300"
             >
               Back
             </button>
             <button
               onClick={() => selectedVoice && generateVoiceover()}
-              className="flex-1 py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              className="flex-1 py-2 px-3 bg-[rgba(var(--accent-blue),0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-blue),1)] transition-all duration-300 button-glow"
               disabled={!selectedVoice}
             >
               Try Again
@@ -728,50 +692,44 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
         </div>
       ) : (
         <>
-          <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-            <div className="mb-4 flex justify-center space-x-4">
+          <div className="bg-glass-darker rounded-lg p-3 border border-[rgba(var(--accent-blue),0.2)] box-glow relative">
+            <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-cyan),0.3)] to-transparent"></div>
+            
+            <div className="mb-3 flex justify-center space-x-2">
               <button
                 onClick={() => setFilterCategory('all')}
-                className={`px-3 py-1 rounded-md ${filterCategory === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                className={`px-3 py-1 rounded-md text-xs ${filterCategory === 'all' 
+                  ? 'bg-[rgba(var(--accent-blue),0.8)] text-white' 
+                  : 'bg-[rgba(40,45,60,0.8)] text-gray-300 border border-[rgba(var(--accent-blue),0.15)]'} transition-all duration-300`}
               >
                 All Voices
               </button>
               <button
                 onClick={() => setFilterCategory('premium')}
-                className={`px-3 py-1 rounded-md ${filterCategory === 'premium' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                className={`px-3 py-1 rounded-md text-xs ${filterCategory === 'premium' 
+                  ? 'bg-[rgba(var(--accent-purple),0.8)] text-white' 
+                  : 'bg-[rgba(40,45,60,0.8)] text-gray-300 border border-[rgba(var(--accent-blue),0.15)]'} transition-all duration-300`}
               >
                 Premium
               </button>
               <button
                 onClick={() => setFilterCategory('standard')}
-                className={`px-3 py-1 rounded-md ${filterCategory === 'standard' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                className={`px-3 py-1 rounded-md text-xs ${filterCategory === 'standard' 
+                  ? 'bg-[rgba(var(--accent-cyan),0.8)] text-white' 
+                  : 'bg-[rgba(40,45,60,0.8)] text-gray-300 border border-[rgba(var(--accent-blue),0.15)]'} transition-all duration-300`}
               >
                 Standard
               </button>
-              <button
-                onClick={() => setFilterCategory('indian')}
-                className={`px-3 py-1 rounded-md ${filterCategory === 'indian' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
-              >
-                Indian
-              </button>
-              <button
-                onClick={() => setFilterCategory('african')}
-                className={`px-3 py-1 rounded-md ${filterCategory === 'african' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
-              >
-                African
-              </button>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {filteredVoices.map((voice) => {
-                const isRecommended = recommendedVoices.length > 0 && recommendedVoices[0]?.id === voice.id;
-                return (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {filteredVoices.map((voice) => (
                 <div
                   key={voice.id}
-                  className={`p-4 rounded-lg cursor-pointer transition-colors ${
+                  className={`p-3 rounded-lg cursor-pointer transition-all ${
                     selectedVoice === voice.id
-                      ? "bg-blue-600 border-2 border-blue-400"
-                      : "bg-gray-800 border border-gray-700 hover:bg-gray-700"
+                      ? "bg-[rgba(var(--accent-blue),0.2)] border border-[rgba(var(--accent-blue),0.5)] box-glow"
+                      : "bg-[rgba(20,25,40,0.5)] border border-[rgba(40,50,80,0.2)] hover:border-[rgba(var(--accent-blue),0.3)]"
                   }`}
                 >
                   <div 
@@ -779,48 +737,48 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
                     onClick={() => handleVoiceSelect(voice.id)}
                   >
                     <div className="flex items-center">
-                      <h3 className="font-medium text-white">{voice.name}</h3>
-                      {isRecommended && (
-                        <span className="ml-2 bg-green-600 text-xs text-white px-2 py-1 rounded-full">
+                      <h3 className="font-medium text-sm text-white">{voice.name}</h3>
+                      {voice.recommended && (
+                        <span className="ml-2 bg-[rgba(0,180,120,0.2)] text-xs text-[rgba(120,255,200,1)] px-2 py-0.5 rounded-full border border-[rgba(0,180,120,0.3)]">
                           Recommended
                         </span>
                       )}
                     </div>
                     {voice.category === 'premium' && (
-                      <span className="bg-yellow-600 text-xs text-white px-2 py-1 rounded-full">
+                      <span className="bg-[rgba(var(--accent-purple),0.2)] text-xs text-[rgba(var(--accent-purple),1)] px-2 py-0.5 rounded-full border border-[rgba(var(--accent-purple),0.3)]">
                         Premium
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-400 mt-1">{voice.description}</p>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {voice.tags && voice.tags.map(tag => (
-                      <span key={tag} className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded-full">
+                  <p className="text-xs text-gray-300 mt-1">{voice.description}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {voice.tags && voice.tags.slice(0, 3).map(tag => (
+                      <span key={tag} className="text-xs bg-[rgba(30,40,60,0.6)] text-gray-300 px-1.5 py-0.5 rounded-full">
                         {tag}
                       </span>
                     ))}
                   </div>
-                  <div className="mt-3 flex justify-between items-center">
+                  <div className="mt-2 flex justify-between items-center">
                     <button
                       onClick={() => generateVoicePreview(voice.id)}
-                      className="text-sm px-3 py-1 bg-indigo-700 text-white rounded hover:bg-indigo-600 transition-colors flex items-center"
+                      className="text-xs px-2 py-1 bg-[rgba(var(--accent-cyan),0.8)] text-white rounded-md hover:bg-[rgba(var(--accent-cyan),0.9)] transition-all duration-300 flex items-center space-x-1"
                       disabled={previewLoading === voice.id}
                     >
                       {previewLoading === voice.id ? (
-                        <><span className="mr-2">Loading...</span> <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div></>
+                        <><span>Loading...</span> <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin ml-1"></div></>
                       ) : previewData[voice.id] ? (
                         previewPlayState[voice.id] ? (
-                          <><span className="mr-2">Pause</span> <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <><span>Pause</span> <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg></>
                         ) : (
-                          <><span className="mr-2">Play</span> <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <><span>Play</span> <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg></>
                         )
                       ) : (
-                        <><span className="mr-2">Preview</span> <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <><span>Preview</span> <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg></>
@@ -828,104 +786,84 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
                     </button>
                     <button
                       onClick={() => handleVoiceSelect(voice.id)}
-                      className={`text-sm px-3 py-1 ${selectedVoice === voice.id ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300'} rounded hover:bg-opacity-80 transition-colors`}
+                      className={`text-xs px-2 py-1 ${
+                        selectedVoice === voice.id 
+                          ? 'bg-[rgba(var(--accent-blue),0.8)]' 
+                          : 'bg-[rgba(40,50,70,0.8)]'
+                      } text-white rounded-md hover:bg-opacity-90 transition-all duration-300`}
                     >
                       {selectedVoice === voice.id ? "Selected" : "Select"}
                     </button>
                   </div>
                 </div>
-              )})}
+              ))}
             </div>
           </div>
 
           {audioData && (
-            <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-              <h3 className="font-medium text-white mb-2">Full Voiceover Preview</h3>
+            <div className="bg-glass-darker rounded-lg p-3 border border-[rgba(var(--accent-blue),0.2)] box-glow relative">
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-cyan),0.3)] to-transparent"></div>
+              <h3 className="font-medium text-sm text-[rgba(var(--accent-cyan),1)] mb-2">Full Voiceover Preview</h3>
               <div className="flex flex-col space-y-2">
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
                   <button
                     onClick={handlePlayPauseAudio}
-                    className="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                    className="p-1.5 rounded-full bg-[rgba(var(--accent-blue),0.8)] text-white hover:bg-[rgba(var(--accent-blue),1)] transition-all duration-300"
                   >
                     {audioElement && !audioElement.paused ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-6 w-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     )}
                   </button>
-                  <div className="text-gray-200 w-20 text-sm">
-                    {formatTime(currentTime)} <span className="text-gray-500">/</span> {formatTime(audioDuration)}
+                  <div className="flex-1">
+                    <div 
+                      ref={progressBarRef}
+                      className="h-2 bg-[rgba(20,30,50,0.5)] rounded-full cursor-pointer"
+                      onClick={handleProgressBarClick}
+                    >
+                      <div 
+                        className="h-full bg-gradient-to-r from-[rgba(var(--accent-blue),0.9)] to-[rgba(var(--accent-cyan),0.9)] rounded-full"
+                        style={{ width: `${audioDuration ? (currentTime / audioDuration) * 100 : 0}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="flex-1 text-gray-400 text-sm">
-                    Voiceover generated with {VOICES.find(v => v.id === selectedVoice)?.name || 'selected voice'}
+                  <div className="text-xs text-gray-300 w-16 text-right">
+                    {formatTime(currentTime)} / {formatTime(audioDuration)}
                   </div>
-                </div>
-                
-                <div className="w-full h-2 bg-gray-700 rounded-full overflow-hidden cursor-pointer" 
-                     ref={progressBarRef}
-                     onClick={handleProgressBarClick}>
-                  <div 
-                    className="h-full bg-blue-600" 
-                    style={{ width: `${(currentTime / audioDuration) * 100 || 0}%` }}
-                  ></div>
                 </div>
               </div>
             </div>
           )}
 
-          <div className="flex gap-4">
+          <div className="flex gap-2">
             <button
               onClick={onBack}
-              className="flex-1 py-2 px-4 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors"
+              className="flex-1 py-2 px-3 bg-[rgba(60,70,85,0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(70,80,95,0.9)] transition-all duration-300"
             >
               Back
             </button>
-            <button
-              onClick={() => selectedVoice && generateVoiceover()}
-              className="flex-1 py-2 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-              disabled={!selectedVoice}
-            >
-              Generate Voiceover
-            </button>
-            <button
-              onClick={handleContinue}
-              className="flex-1 py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              disabled={!audioData}
-            >
-              Continue
-            </button>
+            {selectedVoice && !audioData && (
+              <button
+                onClick={() => generateVoiceover()}
+                className="flex-1 py-2 px-3 bg-[rgba(var(--accent-cyan),0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-cyan),0.9)] transition-all duration-300 button-glow"
+              >
+                Generate
+              </button>
+            )}
+            {audioData && (
+              <button
+                onClick={handleContinue}
+                className="flex-1 py-2 px-3 bg-[rgba(var(--accent-blue),0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-blue),1)] transition-all duration-300 button-glow"
+              >
+                Continue
+              </button>
+            )}
           </div>
         </>
       )}

@@ -19,12 +19,14 @@ export async function POST(request: Request) {
       process.env.REPLICATE_IMAGE_MODEL_ID || "black-forest-labs/flux-schnell",
       {
         input: {
-          prompt: `${prompt} | 16:9 aspect ratio, landscape orientation, widescreen format`,
-          width: 1920,
-          height: 1080,
+          prompt: prompt,
+          aspect_ratio: "16:9",
+          output_format: "png",
+          output_quality: 100,
+          go_fast: true,
+          megapixels: "1",
           num_outputs: 1,
           num_inference_steps: 4,
-          guidance_scale: 7.5,
           negative_prompt: "blurry, low quality, cartoon, 3d, painting, drawing, low resolution, square format, portrait orientation",
         },
       }

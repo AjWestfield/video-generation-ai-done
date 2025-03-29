@@ -211,24 +211,26 @@ const ScriptGeneration: React.FC<ScriptGenerationProps> = ({
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white">Generating Script</h2>
-          <p className="text-gray-400 mt-2">
+          <h2 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[rgba(var(--accent-cyan),1)] to-[rgba(var(--accent-blue),1)] text-glow">
+            Generating Script
+          </h2>
+          <p className="text-gray-300 mt-1 text-sm">
             Our AI is creating an engaging {videoDuration}-minute script based on your idea...
           </p>
           {retryCount > 0 && (
-            <p className={`text-yellow-500 mt-1 ${autoRetrying ? 'animate-pulse' : ''}`}>
+            <p className={`text-[rgba(var(--accent-cyan),0.9)] mt-1 text-sm ${autoRetrying ? 'animate-pulse' : ''}`}>
               {autoRetrying ? 'Auto-retrying: ' : 'Retry attempt: '}{retryCount}/2
             </p>
           )}
         </div>
 
-        <div className="flex justify-center my-8">
-          <div className="animate-pulse flex space-x-4">
-            <div className="h-12 w-12 bg-blue-600 rounded-full animate-bounce"></div>
-            <div className="h-12 w-12 bg-indigo-600 rounded-full animate-bounce animation-delay-200"></div>
-            <div className="h-12 w-12 bg-purple-600 rounded-full animate-bounce animation-delay-400"></div>
+        <div className="flex justify-center my-4">
+          <div className="flex space-x-4">
+            <div className="h-10 w-10 bg-[rgba(var(--accent-blue),0.8)] rounded-full animate-bounce"></div>
+            <div className="h-10 w-10 bg-[rgba(var(--accent-cyan),0.8)] rounded-full animate-bounce animation-delay-200"></div>
+            <div className="h-10 w-10 bg-[rgba(var(--accent-purple),0.8)] rounded-full animate-bounce animation-delay-400"></div>
           </div>
         </div>
       </div>
@@ -237,22 +239,22 @@ const ScriptGeneration: React.FC<ScriptGenerationProps> = ({
 
   if (error) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white">Error</h2>
-          <p className="text-red-500 mt-2">{error}</p>
+          <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-red-600 text-glow">Error</h2>
+          <p className="text-red-400 mt-2 text-sm">{error}</p>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex gap-3">
           <button
             onClick={onBack}
-            className="flex-1 py-2 px-4 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors"
+            className="flex-1 py-2 px-3 bg-[rgba(60,70,85,0.8)] text-white text-sm font-medium rounded-lg hover:bg-[rgba(70,80,95,0.9)] transition-all duration-300"
           >
             Back
           </button>
           <button
             onClick={handleRegenerateScript}
-            className="flex-1 py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex-1 py-2 px-3 bg-[rgba(var(--accent-blue),0.8)] text-white text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-blue),1)] transition-all duration-300 button-glow"
           >
             Try Again
           </button>
@@ -269,33 +271,35 @@ const ScriptGeneration: React.FC<ScriptGenerationProps> = ({
   const maxWordCount = Math.floor(targetWordCount * 1.15);
   
   // Determine if word count is within acceptable bounds
-  let wordCountClass = "text-green-500"; // Default - good
+  let wordCountClass = "text-[rgba(80,230,180,1)]"; // Good - green cyan
   let wordCountMessage = "Perfect length for a";
   
   if (wordCount && wordCount < minWordCount * 0.95) {
-    wordCountClass = "text-red-500 font-bold";
+    wordCountClass = "text-red-400 font-medium";
     wordCountMessage = "Too short for a";
   } else if (wordCount && wordCount < minWordCount) {
-    wordCountClass = "text-yellow-500";
+    wordCountClass = "text-[rgba(var(--accent-cyan),0.9)]";
     wordCountMessage = "Slightly short for a";
   } else if (wordCount && wordCount > maxWordCount) {
-    wordCountClass = "text-yellow-500";
+    wordCountClass = "text-[rgba(var(--accent-purple),0.9)]";
     wordCountMessage = "Slightly long for a";
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Your Video Script</h2>
-        <p className="text-gray-400 mt-2">
+        <h2 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[rgba(var(--accent-cyan),1)] to-[rgba(var(--accent-blue),1)] text-glow">
+          Your Video Script
+        </h2>
+        <p className="text-gray-300 mt-1 text-xs md:text-sm">
           Review the script generated by AI. You can proceed, edit, or regenerate it.
         </p>
         {wordCount && (
           <div>
-            <p className={`text-sm mt-1 ${wordCountClass}`}>
+            <p className={`text-xs md:text-sm mt-1 ${wordCountClass}`}>
               Word count: {wordCount} / Target: {targetWordCount}-{maxWordCount} words
             </p>
-            <p className={`text-sm ${wordCountClass}`}>
+            <p className={`text-xs md:text-sm ${wordCountClass}`}>
               ({wordCountMessage} {videoDuration}-minute video)
             </p>
             {wordCount < minWordCount && !editMode && (
@@ -307,16 +311,17 @@ const ScriptGeneration: React.FC<ScriptGenerationProps> = ({
         )}
       </div>
 
-      <div className="bg-gray-900 rounded-lg p-4 border border-gray-700 h-80 overflow-y-auto">
+      <div className="bg-glass-darker rounded-lg p-3 md:p-4 border border-[rgba(var(--accent-blue),0.2)] box-glow relative h-72 md:h-80 overflow-y-auto">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-cyan),0.3)] to-transparent"></div>
         {editMode ? (
           <textarea
             value={editableScript}
             onChange={handleScriptChange}
-            className="w-full h-full bg-gray-800 text-gray-300 p-2 rounded-md border border-gray-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            className="w-full h-full bg-[rgba(15,20,35,0.5)] text-gray-200 p-2 rounded-md border border-[rgba(var(--accent-blue),0.3)] focus:border-[rgba(var(--accent-cyan),0.8)] focus:ring-1 focus:ring-[rgba(var(--accent-cyan),0.5)] focus:outline-none custom-scrollbar"
             placeholder="Edit your script here..."
           />
         ) : (
-          <div className="prose prose-invert max-w-none text-gray-300 h-full">
+          <div className="prose prose-invert max-w-none text-gray-200 h-full custom-scrollbar">
             {scriptData.script.split("\n").map((paragraph: string, i: number) => (
               <p key={i}>{paragraph}</p>
             ))}
@@ -324,28 +329,32 @@ const ScriptGeneration: React.FC<ScriptGenerationProps> = ({
         )}
       </div>
 
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-2 flex-wrap">
         <button
           onClick={onBack}
-          className="py-2 px-4 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors"
+          className="py-2 px-3 bg-[rgba(60,70,85,0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(70,80,95,0.9)] transition-all duration-300"
         >
           Back
         </button>
         <button
           onClick={handleEditToggle}
-          className={`py-2 px-4 ${editMode ? 'bg-green-600 hover:bg-green-700' : 'bg-purple-600 hover:bg-purple-700'} text-white font-medium rounded-lg transition-colors`}
+          className={`py-2 px-3 text-white text-xs md:text-sm font-medium rounded-lg transition-all duration-300 button-glow ${
+            editMode 
+              ? 'bg-[rgba(0,180,120,0.8)] hover:bg-[rgba(0,200,140,0.9)]' 
+              : 'bg-[rgba(var(--accent-purple),0.8)] hover:bg-[rgba(var(--accent-purple),0.9)]'
+          }`}
         >
           {editMode ? 'Save Edits' : 'Edit Script'}
         </button>
         <button
           onClick={handleRegenerateScript}
-          className="py-2 px-4 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+          className="py-2 px-3 bg-[rgba(var(--accent-cyan),0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-cyan),0.9)] transition-all duration-300 button-glow"
         >
           Regenerate
         </button>
         <button
           onClick={handleContinue}
-          className="py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          className="py-2 px-3 bg-[rgba(var(--accent-blue),0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-blue),1)] transition-all duration-300 button-glow"
         >
           Continue
         </button>

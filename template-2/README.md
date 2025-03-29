@@ -14,6 +14,14 @@ This is a web application that generates videos from ideas using AI. It leverage
 - Professional audio mixing with automatic ducking for clear speech
 - Combine everything into a video using FFmpeg
 
+## Recent Updates
+
+- **Enhanced UI Design**: Modernized interface with futuristic aesthetics, improved responsiveness, and better user experience
+- **Optimized Image Generation**: Updated Replicate Flux integration to use native 16:9 aspect ratio with high-quality PNG output
+- **Improved Storyboard View**: Redesigned the storyboard with larger images and better grid layout across different screen sizes
+- **Focus View Feature**: Added the ability to click on any generated image to see it in a larger view with its associated prompt
+- **Compact Components**: Streamlined UI components to make better use of screen space
+
 ## Tech Stack
 
 - **Frontend**: Next.js 14, React, TailwindCSS
@@ -64,6 +72,14 @@ FFMPEG_PATH=/path/to/ffmpeg
 8. Advanced audio mixing combines voiceover, sound effects, and background music with optimal levels
 9. FFmpeg combines the images and mixed audio into a complete video
 10. Users can download or share the final video
+
+## Image Generation
+
+The application uses Replicate's black-forest-labs/flux-schnell model with optimized parameters:
+- Native 16:9 aspect ratio for cinematic visuals
+- High-quality PNG output format
+- Quantized fast inference for quick generation
+- Customized negative prompts to prevent unwanted elements
 
 ## Audio Controls
 

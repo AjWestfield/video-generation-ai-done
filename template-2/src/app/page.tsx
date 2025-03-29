@@ -111,24 +111,30 @@ export default function Home() {
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-4 md:p-8 lg:p-12 bg-gradient-to-br from-gray-900 to-slate-900">
+    <main className="flex min-h-screen flex-col items-center p-2 md:p-6 lg:p-8">
       <Toaster 
         position="bottom-right" 
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#363636',
+            background: 'rgba(20, 25, 45, 0.85)',
             color: '#fff',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(100, 130, 255, 0.2)',
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3), 0 0 10px rgba(80, 130, 255, 0.3)'
           },
         }}
       />
       
-      <div className="container max-w-5xl mx-auto space-y-8">
-        <header className="text-center space-y-4">
-          <h1 className="text-4xl md:text-5xl font-bold text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600">
-            AI Video Creator
-          </h1>
-          <p className="text-gray-400 max-w-2xl mx-auto">
+      <div className="container max-w-5xl mx-auto space-y-4 md:space-y-6">
+        <header className="text-center space-y-2">
+          <div className="relative inline-block">
+            <h1 className="text-3xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#50d2f0] via-[#4e7aff] to-[#a866ff] text-glow">
+              AI Video Creator
+            </h1>
+            <div className="absolute -inset-4 bg-gradient-to-r from-[rgba(var(--accent-cyan),0.2)] via-[rgba(var(--accent-blue),0.1)] to-[rgba(var(--accent-purple),0.2)] blur-xl opacity-30 rounded-full -z-10"></div>
+          </div>
+          <p className="text-gray-300 max-w-2xl mx-auto text-sm md:text-base">
             Transform your ideas into stunning videos with the power of AI. Just enter your concept and watch it come to life.
           </p>
         </header>
@@ -144,7 +150,10 @@ export default function Home() {
           }} 
         />
 
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 md:p-6 lg:p-8 shadow-xl border border-gray-700">
+        <div className="bg-glass rounded-xl p-3 md:p-5 shadow-xl border border-[rgba(var(--accent-blue),0.15)] box-glow relative">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-cyan),0.5)] to-transparent"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-blue),0.3)] to-transparent"></div>
+          
           {currentStep === 0 && (
             <VideoIdeaForm onSubmit={handleVideoIdeaSubmit} />
           )}
@@ -215,6 +224,11 @@ export default function Home() {
           )}
         </div>
       </div>
+      
+      {/* Decorative elements - made smaller and less intrusive */}
+      <div className="fixed top-20 right-10 w-24 h-24 bg-[rgba(var(--accent-purple),0.15)] rounded-full blur-3xl -z-10 animate-pulse-slow"></div>
+      <div className="fixed bottom-10 left-10 w-32 h-32 bg-[rgba(var(--accent-blue),0.1)] rounded-full blur-3xl -z-10 animate-pulse-slow"></div>
+      <div className="fixed top-1/3 left-20 w-16 h-16 bg-[rgba(var(--accent-cyan),0.15)] rounded-full blur-3xl -z-10 animate-pulse-slow"></div>
     </main>
   );
 }

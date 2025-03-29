@@ -39,11 +39,13 @@ export async function POST(request: Request) {
           {
             input: {
               prompt: sanitizedPrompt,
-              width: 1920,
-              height: 1080, // 16:9 aspect ratio, higher resolution
+              aspect_ratio: "16:9",
+              output_format: "png",
+              output_quality: 100,
+              go_fast: true,
+              megapixels: "1",
               num_outputs: 1,
               num_inference_steps: 4, // Maximum allowed value for this model
-              guidance_scale: 8, // Increased from 7.5 for more prompt adherence
               negative_prompt: "blurry, low quality, cartoon, 3d, painting, drawing, low resolution, square format, portrait orientation, vertical, vertical format, vertical orientation, text, watermark, signature, label, words, characters, nudity, naked, nude, nsfw content",
             },
           }
@@ -63,7 +65,7 @@ export async function POST(request: Request) {
           results.push({
             timestamp,
             imageUrl,
-            imageBase64: `data:image/jpeg;base64,${base64Image}`
+            imageBase64: `data:image/png;base64,${base64Image}`
           });
           
           console.log(`Successfully generated image for timestamp ${timestamp}`);
@@ -87,11 +89,13 @@ export async function POST(request: Request) {
               {
                 input: {
                   prompt: alternativePrompt,
-                  width: 1920,
-                  height: 1080,
+                  aspect_ratio: "16:9",
+                  output_format: "png",
+                  output_quality: 100,
+                  go_fast: true,
+                  megapixels: "1",
                   num_outputs: 1,
                   num_inference_steps: 4,
-                  guidance_scale: 8,
                   negative_prompt: "blurry, low quality, cartoon, 3d, painting, drawing, low resolution, square format, portrait orientation, vertical, vertical format, vertical orientation, text, watermark, signature, label, words, characters, nudity, naked, nude, nsfw content",
                 },
               }
@@ -110,7 +114,7 @@ export async function POST(request: Request) {
               results.push({
                 timestamp,
                 imageUrl: alternativeImageUrl,
-                imageBase64: `data:image/jpeg;base64,${base64Image}`
+                imageBase64: `data:image/png;base64,${base64Image}`
               });
               
               console.log(`Successfully generated alternative image for timestamp ${timestamp}`);

@@ -32,6 +32,12 @@ interface TimedImageGenerationProps {
   onBack: () => void;
 }
 
+interface FocusImageType {
+  imageBase64: string;
+  timestamp: number;
+  prompt: string;
+}
+
 const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
   script,
   audioBase64,
@@ -46,6 +52,7 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [interval, setInterval] = useState(4); // Default interval in seconds
+  const [focusImage, setFocusImage] = useState<FocusImageType | null>(null);
 
   // Calculate how many images will be generated
   const totalImages = imagePrompts.length;
@@ -71,6 +78,21 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
       generateImages();
     }
   }, [imagePrompts]);
+
+  // Handle escape key to close focus view
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFocusImage(null);
+      }
+    };
+    
+    window.addEventListener('keydown', handleEsc);
+    
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
 
   const analyzeAudioDuration = () => {
     setAnalyzing(true);
@@ -285,22 +307,35 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
     const remainingSeconds = Math.floor(seconds % 60);
     return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
   };
+  
+  const handleImageClick = (image: { timestamp: number; imageBase64: string }, index: number) => {
+    // Find the corresponding prompt for this timestamp
+    const prompt = imagePrompts.find(p => p.timestamp === image.timestamp);
+    
+    if (prompt) {
+      setFocusImage({
+        imageBase64: image.imageBase64,
+        timestamp: image.timestamp,
+        prompt: prompt.prompt
+      });
+    }
+  };
 
   if (analyzing) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white">Analyzing Audio</h2>
-          <p className="text-gray-400 mt-2">
+          <h2 className="text-xl font-bold text-white text-glow">Analyzing Audio</h2>
+          <p className="text-gray-300 mt-1 text-sm">
             Analyzing audio duration for timed image generation...
           </p>
         </div>
 
-        <div className="flex justify-center my-8">
-          <div className="animate-pulse flex space-x-4">
-            <div className="h-12 w-12 bg-blue-600 rounded-full animate-bounce"></div>
-            <div className="h-12 w-12 bg-indigo-600 rounded-full animate-bounce animation-delay-200"></div>
-            <div className="h-12 w-12 bg-purple-600 rounded-full animate-bounce animation-delay-400"></div>
+        <div className="flex justify-center my-4">
+          <div className="flex space-x-4">
+            <div className="h-10 w-10 bg-[rgba(var(--accent-blue),0.8)] rounded-full animate-bounce"></div>
+            <div className="h-10 w-10 bg-[rgba(var(--accent-cyan),0.8)] rounded-full animate-bounce animation-delay-200"></div>
+            <div className="h-10 w-10 bg-[rgba(var(--accent-purple),0.8)] rounded-full animate-bounce animation-delay-400"></div>
           </div>
         </div>
       </div>
@@ -309,19 +344,19 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
 
   if (loading && imagePrompts.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white">Generating Image Prompts</h2>
-          <p className="text-gray-400 mt-2">
+          <h2 className="text-xl font-bold text-white text-glow">Generating Image Prompts</h2>
+          <p className="text-gray-300 mt-1 text-sm">
             Creating contextual image prompts for your voiceover...
           </p>
         </div>
 
-        <div className="flex justify-center my-8">
-          <div className="animate-pulse flex space-x-4">
-            <div className="h-12 w-12 bg-blue-600 rounded-full animate-bounce"></div>
-            <div className="h-12 w-12 bg-indigo-600 rounded-full animate-bounce animation-delay-200"></div>
-            <div className="h-12 w-12 bg-purple-600 rounded-full animate-bounce animation-delay-400"></div>
+        <div className="flex justify-center my-4">
+          <div className="flex space-x-4">
+            <div className="h-10 w-10 bg-[rgba(var(--accent-blue),0.8)] rounded-full animate-bounce"></div>
+            <div className="h-10 w-10 bg-[rgba(var(--accent-cyan),0.8)] rounded-full animate-bounce animation-delay-200"></div>
+            <div className="h-10 w-10 bg-[rgba(var(--accent-purple),0.8)] rounded-full animate-bounce animation-delay-400"></div>
           </div>
         </div>
       </div>
@@ -329,10 +364,12 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 md:space-y-4">
       <div className="text-center">
-        <h2 className="text-2xl font-bold text-white">Timed Image Generation</h2>
-        <p className="text-gray-400 mt-2">
+        <h2 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[rgba(var(--accent-cyan),1)] to-[rgba(var(--accent-blue),1)] text-glow">
+          Timed Image Generation
+        </h2>
+        <p className="text-gray-300 mt-1 text-xs md:text-sm">
           Generating images synchronized with your voiceover
           {audioDuration ? ` (${Math.round(audioDuration)} seconds)` : ""}
         </p>
@@ -340,10 +377,11 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
 
       {/* Interval selector */}
       {imagePrompts.length === 0 && (
-        <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
+        <div className="bg-glass-darker rounded-lg p-3 md:p-4 border border-[rgba(var(--accent-blue),0.2)] box-glow relative">
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-cyan),0.3)] to-transparent"></div>
           <div className="flex flex-col space-y-2">
-            <label htmlFor="interval" className="text-white">
-              Image interval: {interval} seconds
+            <label htmlFor="interval" className="text-white text-sm">
+              Image interval: <span className="text-[rgba(var(--accent-cyan),1)]">{interval} seconds</span>
             </label>
             <input
               type="range"
@@ -353,16 +391,16 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
               step="0.5"
               value={interval}
               onChange={handleIntervalChange}
-              className="w-full"
+              className="w-full accent-[rgba(var(--accent-cyan),1)]"
             />
-            <p className="text-sm text-gray-400">
-              This will generate approximately {audioDuration ? Math.ceil(audioDuration / interval) : "..."} images for your {audioDuration ? Math.round(audioDuration) : "..."} second voiceover.
+            <p className="text-xs text-gray-300">
+              This will generate approximately <span className="text-[rgba(var(--accent-cyan),1)]">{audioDuration ? Math.ceil(audioDuration / interval) : "..."}</span> images for your <span className="text-[rgba(var(--accent-blue),1)]">{audioDuration ? Math.round(audioDuration) : "..."}</span> second voiceover.
             </p>
           </div>
-          <div className="mt-4">
+          <div className="mt-3">
             <button
               onClick={generateTimedPrompts}
-              className="w-full py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full py-2 px-3 bg-[rgba(var(--accent-blue),0.8)] text-white text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-blue),1)] transition-all duration-300 button-glow disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[rgba(var(--accent-blue),0.8)]"
               disabled={!audioDuration || loading}
             >
               Generate Image Prompts
@@ -373,14 +411,14 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
 
       {/* Progress bar */}
       {(imagePrompts.length > 0 && generatedImages.length < totalImages) && (
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm text-gray-400">
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-gray-300">
             <span>Generating image {generatedImages.length + 1} of {totalImages}</span>
-            <span>{progress}%</span>
+            <span className="text-[rgba(var(--accent-cyan),1)]">{progress}%</span>
           </div>
-          <div className="w-full bg-gray-700 rounded-full h-2.5">
+          <div className="w-full bg-[rgba(20,25,40,0.6)] rounded-full h-2 overflow-hidden backdrop-blur-sm box-glow">
             <div
-              className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+              className="bg-gradient-to-r from-[rgba(var(--accent-blue),0.9)] to-[rgba(var(--accent-cyan),0.9)] h-2 rounded-full transition-all duration-500"
               style={{ width: `${progress}%` }}
             ></div>
           </div>
@@ -389,74 +427,162 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
 
       {/* Error display */}
       {error && (
-        <div className="text-center text-red-500 p-3 bg-red-900/20 border border-red-900 rounded-lg">
+        <div className="text-center text-red-400 p-2 bg-red-900/20 border border-red-800/50 rounded-lg text-xs md:text-sm">
           {error}
         </div>
       )}
 
-      {/* Prompts display */}
+      {/* Generated Prompts & Images Section - Compact Layout */}
       {imagePrompts.length > 0 && (
-        <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-          <h3 className="text-xl font-medium text-white mb-3">Generated Prompts:</h3>
-          <div className="space-y-4 max-h-64 overflow-y-auto">
-            {imagePrompts.map((prompt, index) => (
-              <div
-                key={index}
-                className={`p-3 rounded border ${
-                  index < generatedImages.length
-                    ? "bg-green-900/20 border-green-700"
-                    : index === currentPromptIndex && loading
-                    ? "bg-blue-900/20 border-blue-700 animate-pulse"
-                    : "bg-gray-800 border-gray-700"
-                }`}
-              >
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-400">
-                    Timestamp: {formatTimestamp(prompt.timestamp)}
-                  </span>
-                  <span className="text-sm text-gray-400">
-                    {index < generatedImages.length
-                      ? "Generated"
-                      : index === currentPromptIndex && loading
-                      ? "Generating..."
-                      : "Pending"}
-                  </span>
-                </div>
-                <p className="text-gray-300 mt-1">{prompt.prompt}</p>
+        <div className="max-w-[calc(100vw-2rem)] mx-auto">
+          {/* Left column - Generated Prompts (visible on small screens, hidden on md and up) */}
+          <div className="md:hidden">
+            <div className="bg-glass-darker rounded-lg p-3 border border-[rgba(var(--accent-blue),0.2)] box-glow relative mb-2">
+              <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[rgba(var(--accent-cyan),0.3)] to-transparent"></div>
+              <h3 className="text-base font-medium text-transparent bg-clip-text bg-gradient-to-r from-white to-[rgba(var(--accent-blue),1)]">Generated Prompts:</h3>
+              <div className="space-y-1 max-h-32 overflow-y-auto pr-1 custom-scrollbar mt-2">
+                {imagePrompts.map((prompt, index) => (
+                  <div
+                    key={index}
+                    className={`p-1.5 rounded-lg border backdrop-blur-sm transition-all duration-300 text-xs ${
+                      index < generatedImages.length
+                        ? "bg-[rgba(0,100,80,0.2)] border-[rgba(80,230,180,0.4)]"
+                        : index === currentPromptIndex && loading
+                        ? "bg-[rgba(20,80,170,0.2)] border-[rgba(100,160,255,0.4)] animate-pulse"
+                        : "bg-[rgba(20,25,40,0.5)] border-[rgba(var(--accent-blue),0.2)]"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <span className="text-[rgba(var(--accent-cyan),1)] font-mono">
+                        {formatTimestamp(prompt.timestamp)}
+                      </span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                        index < generatedImages.length
+                          ? "bg-[rgba(0,100,80,0.2)] text-[rgba(120,255,200,1)]"
+                          : index === currentPromptIndex && loading
+                          ? "bg-[rgba(20,80,170,0.2)] text-[rgba(100,160,255,1)] animate-pulse"
+                          : "bg-[rgba(40,45,60,0.5)] text-gray-400"
+                      }`}>
+                        {index < generatedImages.length
+                          ? "Generated"
+                          : index === currentPromptIndex && loading
+                          ? "Generating..."
+                          : "Pending"}
+                      </span>
+                    </div>
+                    <p className="text-gray-200 mt-0.5 line-clamp-1">{prompt.prompt}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+          </div>
+
+          {/* Generated Images Grid - Wider and larger images */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+            {generatedImages.length > 0 && generatedImages.map((image, index) => {
+              // Find the corresponding prompt for this timestamp
+              const prompt = imagePrompts.find(p => p.timestamp === image.timestamp);
+              return (
+                <div key={index} className="group">
+                  <div 
+                    className="aspect-video bg-[rgba(20,25,40,0.5)] rounded-md overflow-hidden border border-[rgba(var(--accent-blue),0.3)] hover:border-[rgba(var(--accent-cyan),0.6)] transition-all duration-300 hover:shadow-lg cursor-pointer"
+                    onClick={() => handleImageClick(image, index)}
+                  >
+                    <img
+                      src={image.imageBase64}
+                      alt={`Generated image at ${formatTimestamp(image.timestamp)}`}
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                    />
+                    <div className="absolute bottom-1 left-1 text-[10px] bg-[rgba(0,0,0,0.5)] text-[rgba(var(--accent-cyan),1)] px-1.5 py-0.5 rounded-full backdrop-blur-sm font-mono">
+                      {formatTimestamp(image.timestamp)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Generated images display */}
-      {generatedImages.length > 0 && (
-        <div className="bg-gray-900 rounded-lg p-4 border border-gray-700">
-          <h3 className="text-xl font-medium text-white mb-3">Generated Images:</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {generatedImages.map((image, index) => (
-              <div key={index} className="space-y-2">
-                <div className="aspect-video bg-gray-800 rounded-lg overflow-hidden border border-gray-700">
-                  <img
-                    src={image.imageBase64}
-                    alt={`Generated image at ${formatTimestamp(image.timestamp)}`}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <p className="text-sm text-gray-400 text-center">
-                  Timestamp: {formatTimestamp(image.timestamp)}
-                </p>
+      {/* Focus view modal - Updated layout to avoid scrolling */}
+      {focusImage && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setFocusImage(null)}
+        >
+          <div 
+            className="bg-glass-darker rounded-xl border border-[rgba(var(--accent-blue),0.3)] box-glow w-full max-w-5xl max-h-[90vh] flex flex-col md:flex-row overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Mobile view - stacked layout */}
+            <div className="md:hidden flex flex-col h-full">
+              <div className="p-3 border-b border-[rgba(var(--accent-blue),0.2)] flex justify-between items-center">
+                <h3 className="text-base font-medium text-[rgba(var(--accent-cyan),1)]">
+                  Image at {formatTimestamp(focusImage.timestamp)}
+                </h3>
+                <button 
+                  className="text-gray-400 hover:text-white"
+                  onClick={() => setFocusImage(null)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-            ))}
+              <div className="flex-1 min-h-0 overflow-hidden bg-black">
+                <img 
+                  src={focusImage.imageBase64} 
+                  alt={`Focus view at ${formatTimestamp(focusImage.timestamp)}`}
+                  className="w-full h-auto object-contain max-h-[50vh]"
+                />
+              </div>
+              <div className="p-3 border-t border-[rgba(var(--accent-blue),0.2)] bg-[rgba(15,20,30,0.5)] overflow-y-auto max-h-[40vh]">
+                <h4 className="text-sm font-medium text-[rgba(var(--accent-cyan),0.9)] mb-1">Prompt:</h4>
+                <p className="text-sm text-gray-300">{focusImage.prompt}</p>
+              </div>
+            </div>
+            
+            {/* Desktop view - side-by-side layout */}
+            <div className="hidden md:flex md:flex-row h-full w-full">
+              {/* Left side - Image */}
+              <div className="w-7/12 bg-black flex items-center justify-center relative">
+                <button 
+                  className="absolute top-3 right-3 text-gray-400 hover:text-white z-10"
+                  onClick={() => setFocusImage(null)}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                <img 
+                  src={focusImage.imageBase64} 
+                  alt={`Focus view at ${formatTimestamp(focusImage.timestamp)}`}
+                  className="max-w-full max-h-[80vh] object-contain"
+                />
+              </div>
+              
+              {/* Right side - Prompt details */}
+              <div className="w-5/12 flex flex-col bg-[rgba(15,20,30,0.8)] border-l border-[rgba(var(--accent-blue),0.2)]">
+                <div className="p-4 border-b border-[rgba(var(--accent-blue),0.2)]">
+                  <h3 className="text-lg font-medium text-[rgba(var(--accent-cyan),1)]">
+                    Image at {formatTimestamp(focusImage.timestamp)}
+                  </h3>
+                </div>
+                <div className="p-4 overflow-y-auto flex-1">
+                  <h4 className="text-sm font-medium text-[rgba(var(--accent-cyan),0.9)] mb-2">Prompt:</h4>
+                  <p className="text-sm text-gray-300 leading-relaxed">{focusImage.prompt}</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Action buttons */}
-      <div className="flex gap-4">
+      <div className="flex gap-2">
         <button
           onClick={onBack}
-          className="flex-1 py-2 px-4 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors"
+          className="flex-1 py-2 px-3 bg-[rgba(60,70,85,0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(70,80,95,0.9)] transition-all duration-300"
         >
           Back
         </button>
@@ -464,7 +590,7 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
         {imagePrompts.length > 0 && (
           <button
             onClick={handleRegeneratePrompts}
-            className="flex-1 py-2 px-4 bg-yellow-600 text-white font-medium rounded-lg hover:bg-yellow-700 transition-colors"
+            className="flex-1 py-2 px-3 bg-[rgba(var(--accent-purple),0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-purple),0.9)] transition-all duration-300 button-glow disabled:opacity-50"
             disabled={loading}
           >
             Regenerate Prompts
@@ -474,7 +600,7 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
         {imagePrompts.length > 0 && generatedImages.length > 0 && (
           <button
             onClick={handleRegenerateImages}
-            className="flex-1 py-2 px-4 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex-1 py-2 px-3 bg-[rgba(var(--accent-cyan),0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-cyan),0.9)] transition-all duration-300 button-glow disabled:opacity-50"
             disabled={loading}
           >
             Regenerate Images
@@ -483,7 +609,7 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
         
         <button
           onClick={handleContinue}
-          className="flex-1 py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex-1 py-2 px-3 bg-[rgba(var(--accent-blue),0.8)] text-white text-xs md:text-sm font-medium rounded-lg hover:bg-[rgba(var(--accent-blue),1)] transition-all duration-300 button-glow disabled:opacity-50"
           disabled={loading || generatedImages.length === 0}
         >
           Continue
