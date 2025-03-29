@@ -8,14 +8,15 @@ This is a web application that generates videos from ideas using AI. It leverage
 - Generate a professional script using OpenRouter's Gemini AI
 - Create high-quality voice overs with ElevenLabs
 - Generate stunning visuals with Replicate's Flux model
-- Add contextual sound effects with Tango AI sound generator
-- Customize audio with volume controls for voice, sound effects, and music
 - Create background music to match the mood
-- Professional audio mixing with automatic ducking for clear speech
+- Professional audio mixing with broadcast-standard levels
 - Combine everything into a video using FFmpeg
 
 ## Recent Updates
 
+- **Removed Sound Effects Processing**: Simplified the audio pipeline by removing sound effects for better reliability
+- **Optimized Audio Levels**: Implemented broadcast-standard audio levels (-16 LUFS for voice, -24 LUFS for music)
+- **Streamlined Workflow**: Removed the sound effects step from the video creation process
 - **Enhanced UI Design**: Modernized interface with futuristic aesthetics, improved responsiveness, and better user experience
 - **Optimized Image Generation**: Updated Replicate Flux integration to use native 16:9 aspect ratio with high-quality PNG output
 - **Improved Storyboard View**: Redesigned the storyboard with larger images and better grid layout across different screen sizes
@@ -26,13 +27,12 @@ This is a web application that generates videos from ideas using AI. It leverage
 
 - **Frontend**: Next.js 14, React, TailwindCSS
 - **AI Services**:
-  - OpenRouter (Google Gemini 2.0 Flash) for script generation and sound effect analysis
+  - OpenRouter (Google Gemini 2.0 Flash) for script generation
   - ElevenLabs for text-to-speech
   - Replicate (Flux model) for image generation
-  - Replicate (Tango model) for sound effect generation
   - Replicate (MusicGen) for background music generation
-- **Video Processing**: FFmpeg for combining images, audio, and sound effects into videos
-- **Audio Processing**: Advanced audio mixing with volume controls and dynamic audio ducking
+- **Video Processing**: FFmpeg for combining images and audio into videos
+- **Audio Processing**: Professional broadcast-standard audio normalization and mixing
 
 ## Setup
 
@@ -66,12 +66,10 @@ FFMPEG_PATH=/path/to/ffmpeg
 2. The application uses Google Gemini to generate a script and image prompts
 3. ElevenLabs converts the script to a natural-sounding voiceover
 4. Replicate's Flux model creates images based on the generated prompts
-5. Google Gemini analyzes the script and images to identify opportunities for sound effects
-6. Replicate's Tango model generates custom sound effects for key moments
-7. Replicate's MusicGen creates background music that matches the mood
-8. Advanced audio mixing combines voiceover, sound effects, and background music with optimal levels
-9. FFmpeg combines the images and mixed audio into a complete video
-10. Users can download or share the final video
+5. Replicate's MusicGen creates background music that matches the mood
+6. Professional audio processing applies broadcast-standard normalization to voice and music
+7. FFmpeg combines the images and mixed audio into a complete video
+8. Users can download or share the final video
 
 ## Image Generation
 
@@ -81,25 +79,21 @@ The application uses Replicate's black-forest-labs/flux-schnell model with optim
 - Quantized fast inference for quick generation
 - Customized negative prompts to prevent unwanted elements
 
-## Audio Controls
+## Audio Processing
 
-The application now features advanced audio controls:
+The application now uses professional broadcast-standard audio processing:
 
-- **Voice Volume**: Adjust the prominence of the narration
-- **Sound Effects Volume**: Control the intensity of sound effects 
-- **Background Music Volume**: Set the appropriate level for background music
-- **Audio Mixing Presets**: Choose from Voice Focus, Balanced, or Cinematic audio profiles
+- **Voice normalization**: -16 LUFS (Loudness Units Full Scale) - the professional standard for spoken content
+- **Music normalization**: -24 LUFS - exactly 8dB lower than voice (optimal for background music)
+- **Professional mixing**: Proper mixing weights (1:0.5) for voice and music
+- **Auto fade-out**: Gentle music fade-out at the end of voiceover
 
-The audio engine automatically applies ducking to ensure speech clarity while maintaining an immersive soundtrack.
+These settings follow audio engineering best practices to ensure clear voice narration with pleasant background music.
 
 ## Project Structure
 
 - `/src/app/api` - API routes for AI services and video generation
-- `/src/app/api/openrouter/generate-sound-effect-prompts` - AI analysis for contextual sound effects
-- `/src/app/api/replicate/generate-sound-effect` - Sound effect generation service
 - `/src/components` - React components for each step of the video creation process
-- `/src/components/AudioVolumeControls.tsx` - UI controls for audio mixing
-- `/src/components/SoundEffectGeneration.tsx` - Sound effect generation interface
 - `/public/videos` - Storage for generated videos
 - `/public/temp` - Temporary storage for processing files
 
@@ -112,5 +106,5 @@ This project is licensed under the MIT License.
 This project uses:
 - OpenRouter API for accessing Google Gemini
 - ElevenLabs for text-to-speech
-- Replicate for image, sound effect, and music generation
+- Replicate for image and music generation
 - FFmpeg for video processing and audio mixing

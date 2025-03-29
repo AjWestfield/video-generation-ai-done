@@ -36,7 +36,6 @@ export default function Home() {
     "Voiceover Generation",
     "Image Generation",
     "Music Generation",
-    "Sound Effects",
     "Video Creation",
   ];
 
@@ -83,16 +82,10 @@ export default function Home() {
     setCurrentStep(5);
   };
 
-  // Handle sound effect generation completion
-  const handleSoundEffectsGenerated = (data: SoundEffect[]) => {
-    setSoundEffectData(data);
-    setCurrentStep(6);
-  };
-
   // Handle video generation completion
   const handleVideoGenerated = (data: any) => {
     setVideoData(data);
-    setCurrentStep(7);
+    setCurrentStep(6);
   };
 
   // Reset the workflow
@@ -193,30 +186,19 @@ export default function Home() {
               onBack={() => setCurrentStep(3)}
             />
           )}
-
-          {currentStep === 5 && scriptData && timedImages.length > 0 && musicData && (
-            <SoundEffectGeneration 
-              script={scriptData.script}
-              timedImages={timedImages}
-              onSoundEffectsGenerated={handleSoundEffectsGenerated}
-              onBack={() => setCurrentStep(4)}
-              autoGenerate={true}
-            />
-          )}
           
-          {currentStep === 6 && imageData.length > 0 && musicData && (
+          {currentStep === 5 && imageData.length > 0 && musicData && (
             <VideoGeneration 
               images={imageData} 
               audioBase64={voiceoverData.audioBase64}
               timedImages={timedImages}
               backgroundMusic={musicData.musicUrl}
-              soundEffects={soundEffectData}
               onVideoGenerated={handleVideoGenerated}
-              onBack={() => setCurrentStep(5)}
+              onBack={() => setCurrentStep(4)}
             />
           )}
           
-          {currentStep === 7 && videoData && (
+          {currentStep === 6 && videoData && (
             <VideoPreview 
               videoUrl={videoData.videoUrl} 
               onReset={handleReset}
