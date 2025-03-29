@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
+import AudioVolumeControls from "./AudioVolumeControls";
+import { SoundEffect } from "@/services/soundEffectService";
 
 interface VideoGenerationProps {
   images: string[];
   audioBase64: string;
   timedImages?: { timestamp: number; imageBase64: string }[];
   backgroundMusic?: string;
+  soundEffects?: SoundEffect[];
   onVideoGenerated: (videoData: any) => void;
   onBack: () => void;
 }
@@ -15,6 +18,7 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
   audioBase64,
   timedImages,
   backgroundMusic,
+  soundEffects,
   onVideoGenerated,
   onBack,
 }) => {
@@ -22,9 +26,15 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   
+  // Audio volume states
+  const [voiceVolume, setVoiceVolume] = useState(1.0);
+  const [soundEffectVolume, setSoundEffectVolume] = useState(0.7);
+  const [musicVolume, setMusicVolume] = useState(0.2);
+  
   // Start generating the video as soon as the component mounts
   useEffect(() => {
-    generateVideo();
+    // Don't auto-generate the video with our new controls
+    // Let the user adjust audio first
   }, []);
 
   const generateVideo = async () => {
@@ -53,7 +63,12 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
           timedImages,
           audioBase64,
           backgroundMusic,
+          soundEffects,
           duration: 15, // Default duration in seconds
+          // Include volume settings
+          voiceVolume,
+          soundEffectVolume,
+          musicVolume
         }),
       });
 
@@ -90,7 +105,9 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white">Video Generation</h2>
         <p className="text-gray-400 mt-2">
-          Combining your {timedImages ? "timed " : ""}images, voiceover{backgroundMusic ? ", and background music" : ""} to create a seamless video...
+          Combining your {timedImages ? "timed " : ""}images, voiceover
+          {backgroundMusic ? ", background music" : ""}
+          {soundEffects && soundEffects.length > 0 ? ", and sound effects" : ""} to create a seamless video...
         </p>
         {timedImages && (
           <p className="text-xs text-gray-500 mt-1">
@@ -102,7 +119,40 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
             Adding AI-generated background music to enhance your video
           </p>
         )}
+        {soundEffects && soundEffects.length > 0 && (
+          <p className="text-xs text-gray-500 mt-1">
+            Including {soundEffects.length} AI-generated sound effects for immersive experience
+          </p>
+        )}
       </div>
+
+      {!loading && (
+        <>
+          <AudioVolumeControls 
+            voiceVolume={voiceVolume}
+            soundEffectVolume={soundEffectVolume}
+            musicVolume={musicVolume}
+            onVoiceVolumeChange={setVoiceVolume}
+            onSoundEffectVolumeChange={setSoundEffectVolume}
+            onMusicVolumeChange={setMusicVolume}
+          />
+          
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={onBack}
+              className="py-2 px-4 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Back
+            </button>
+            <button
+              onClick={generateVideo}
+              className="py-2 px-6 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Generate Video
+            </button>
+          </div>
+        </>
+      )}
 
       {loading && (
         <div className="space-y-6">
@@ -138,11 +188,13 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
               
               <div className="text-center">
                 <p className="text-sm text-gray-400">
-                  {progress < 25 ? (
+                  {progress < 20 ? (
                     "Setting up processing environment..."
-                  ) : progress < 50 ? (
+                  ) : progress < 40 ? (
                     "Converting images to video frames..."
-                  ) : progress < 75 ? (
+                  ) : progress < 60 ? (
+                    soundEffects && soundEffects.length > 0 ? "Adding sound effects..." : "Preparing audio..."
+                  ) : progress < 80 ? (
                     backgroundMusic ? "Mixing audio tracks..." : "Adding audio track to video..."
                   ) : (
                     "Finalizing and optimizing video..."

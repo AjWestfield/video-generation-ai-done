@@ -8,10 +8,12 @@ import ImagePromptGeneration from "../components/ImagePromptGeneration";
 import ImageGeneration from "../components/ImageGeneration";
 import TimedImageGeneration from "../components/TimedImageGeneration";
 import MusicGeneration from "../components/MusicGeneration";
+import SoundEffectGeneration from "../components/SoundEffectGeneration";
 import VideoGeneration from "../components/VideoGeneration";
 import VideoPreview from "../components/VideoPreview";
 import ProgressStepper from "../components/ProgressStepper";
 import { Toaster } from "react-hot-toast";
+import { SoundEffect } from "@/services/soundEffectService";
 
 export default function Home() {
   // Define the workflow states
@@ -24,6 +26,7 @@ export default function Home() {
   const [timedImages, setTimedImages] = useState<{ timestamp: number; imageBase64: string }[]>([]);
   const [imageData, setImageData] = useState<string[]>([]);
   const [musicData, setMusicData] = useState<{ musicUrl: string; musicPrompt: string } | null>(null);
+  const [soundEffectData, setSoundEffectData] = useState<SoundEffect[]>([]);
   const [videoData, setVideoData] = useState<any>(null);
 
   // Steps of the workflow
@@ -33,6 +36,7 @@ export default function Home() {
     "Voiceover Generation",
     "Image Generation",
     "Music Generation",
+    "Sound Effects",
     "Video Creation",
   ];
 
@@ -79,10 +83,16 @@ export default function Home() {
     setCurrentStep(5);
   };
 
+  // Handle sound effect generation completion
+  const handleSoundEffectsGenerated = (data: SoundEffect[]) => {
+    setSoundEffectData(data);
+    setCurrentStep(6);
+  };
+
   // Handle video generation completion
   const handleVideoGenerated = (data: any) => {
     setVideoData(data);
-    setCurrentStep(6);
+    setCurrentStep(7);
   };
 
   // Reset the workflow
@@ -95,6 +105,7 @@ export default function Home() {
     setTimedImages([]);
     setImageData([]);
     setMusicData(null);
+    setSoundEffectData([]);
     setVideoData(null);
     setCurrentStep(0);
   };
@@ -173,19 +184,30 @@ export default function Home() {
               onBack={() => setCurrentStep(3)}
             />
           )}
+
+          {currentStep === 5 && scriptData && timedImages.length > 0 && musicData && (
+            <SoundEffectGeneration 
+              script={scriptData.script}
+              timedImages={timedImages}
+              onSoundEffectsGenerated={handleSoundEffectsGenerated}
+              onBack={() => setCurrentStep(4)}
+              autoGenerate={true}
+            />
+          )}
           
-          {currentStep === 5 && imageData.length > 0 && musicData && (
+          {currentStep === 6 && imageData.length > 0 && musicData && (
             <VideoGeneration 
               images={imageData} 
               audioBase64={voiceoverData.audioBase64}
               timedImages={timedImages}
               backgroundMusic={musicData.musicUrl}
+              soundEffects={soundEffectData}
               onVideoGenerated={handleVideoGenerated}
-              onBack={() => setCurrentStep(4)}
+              onBack={() => setCurrentStep(5)}
             />
           )}
           
-          {currentStep === 6 && videoData && (
+          {currentStep === 7 && videoData && (
             <VideoPreview 
               videoUrl={videoData.videoUrl} 
               onReset={handleReset}
