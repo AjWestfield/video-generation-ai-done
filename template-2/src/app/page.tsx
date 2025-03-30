@@ -3,10 +3,10 @@
 import { useState, useCallback } from "react";
 import VideoIdeaForm from "../components/VideoIdeaForm";
 import ScriptGeneration from "../components/ScriptGeneration";
+// Remove unused imports
+// Keep original imports, remove VoiceInput and TranscriptImagePromptReview for now
 import VoiceoverGeneration from "../components/VoiceoverGeneration";
-import ImagePromptGeneration from "../components/ImagePromptGeneration";
 import ImageGeneration from "../components/ImageGeneration";
-import TimedImageGeneration from "../components/TimedImageGeneration";
 import MusicGeneration from "../components/MusicGeneration";
 import VideoGeneration from "../components/VideoGeneration";
 import VideoPreview from "../components/VideoPreview";
@@ -22,18 +22,20 @@ export default function Home() {
   const [storyStructure, setStoryStructure] = useState<string>("standard");
   const [scriptData, setScriptData] = useState<{ script: string; title: string }>({ script: "", title: "" });
   const [voiceoverData, setVoiceoverData] = useState<{ audioBase64: string; voiceId: string; script: string } | null>(null);
-  const [imageData, setImageData] = useState<{ timestamp: number; imageBase64: string }[]>([]);
+  // Add state for the finalized prompts coming from the modified VoiceoverGeneration component
+  const [finalImagePrompts, setFinalImagePrompts] = useState<{ timestamp: number; imagePrompt: string }[] | null>(null);
+  const [imageData, setImageData] = useState<string[]>([]); // ImageGeneration still expects string[] (base64)
   const [musicData, setMusicData] = useState<string | null>(null);
   const [videoData, setVideoData] = useState<any>(null);
 
-  // Steps of the workflow
+  // Steps reflecting the new flow integrated into VoiceoverGeneration
   const steps = [
     "Video Idea",
     "Script Generation",
-    "Voiceover Generation",
-    "Image Generation",
-    "Music Generation",
-    "Video Creation",
+    "Voiceover & Prompts", // Combined Step 3 (Voiceover Gen + Review)
+    "Image Generation",    // Step 4
+    "Music Generation",    // Step 5
+    "Video Creation",      // Step 6
   ];
 
   // Function to handle navigation to prevent image regeneration
@@ -46,36 +48,44 @@ export default function Home() {
     setVideoDuration(duration);
     setNarrativeMode(isNarrativeMode);
     setStoryStructure(structure);
-    setStep(2);
+    setStep(2); // Go to Script Generation
   }, []);
 
   const handleScriptGenerated = useCallback((data: { script: string; title: string }) => {
     setScriptData(data);
-    setStep(3);
+    setStep(3); // Go to Voiceover Generation & Prompt Review
   }, []);
 
-  const handleVoiceoverGenerated = useCallback((data: { audioBase64: string; voiceId: string; script: string }) => {
-    setVoiceoverData(data);
-    setStep(4);
+  // Modified callback for VoiceoverGeneration component
+  // It now provides both original voiceover data AND the finalized prompts
+  const handleVoiceoverAndPromptsGenerated = useCallback((data: {
+    voiceover: { audioBase64: string; voiceId: string; script: string };
+    finalPrompts: { timestamp: number; imagePrompt: string }[];
+  }) => {
+    setVoiceoverData(data.voiceover);
+    setFinalImagePrompts(data.finalPrompts);
+    setStep(4); // Go to Image Generation
   }, []);
 
-  const handleImagesGenerated = useCallback((images: { timestamp: number; imageBase64: string }[]) => {
+
+  // Callback for ImageGeneration component remains the same
+  const handleImagesGenerated = useCallback((images: string[]) => {
     setImageData(images);
-    setStep(5);
+    setStep(5); // Go to Music Generation
   }, []);
 
   const handleMusicGenerated = useCallback((data: { musicUrl: string; musicPrompt: string }) => {
     setMusicData(data.musicUrl);
-    setStep(6);
+    setStep(6); // Go to Video Creation
   }, []);
 
   // Handle video generation completion
   const handleVideoGenerated = (data: any) => {
     setVideoData(data);
-    setStep(7);
+    setStep(7); // Go to Video Preview
   };
 
-  // Reset the workflow
+  // Reset the workflow - include finalImagePrompts
   const handleReset = () => {
     setVideoIdea("");
     setVideoDuration(1);
@@ -83,6 +93,7 @@ export default function Home() {
     setStoryStructure("standard");
     setScriptData({ script: "", title: "" });
     setVoiceoverData(null);
+    setFinalImagePrompts(null); // Reset new state
     setImageData([]);
     setMusicData(null);
     setVideoData(null);
@@ -142,49 +153,65 @@ export default function Home() {
               onBack={() => setStep(1)}
             />
           )}
-          
+
+          {/* Step 3: Voiceover Generation & Prompt Review */}
           {step === 3 && scriptData && (
-            <VoiceoverGeneration 
-              script={scriptData.script} 
-              onVoiceoverGenerated={handleVoiceoverGenerated}
+            <VoiceoverGeneration
+              script={scriptData.script}
+              // Pass the new combined callback
+              onVoiceoverAndPromptsGenerated={handleVoiceoverAndPromptsGenerated}
               onBack={() => setStep(2)}
-              autoGenerate={false}
+              autoGenerate={false} // Keep manual generation trigger
             />
           )}
-          
-          {step === 4 && scriptData && voiceoverData && (
-            <TimedImageGeneration 
-              script={scriptData.script}
-              audioBase64={voiceoverData.audioBase64}
-              onImagesGenerated={handleImagesGenerated}
-              onBack={() => setStep(3)}
-            />
-          )}
-          
+
+          {/* Step 4: Image Generation */}
+          {step === 4 && finalImagePrompts && (
+             <ImageGeneration
+               // Pass the finalized prompts from state
+               imageSections={finalImagePrompts.map(p => ({
+                 scriptSection: `Time: ${p.timestamp.toFixed(2)}s`, // Use timestamp as context
+                 imagePrompt: p.imagePrompt
+               }))}
+               onImagesGenerated={handleImagesGenerated}
+               onBack={() => setStep(3)} // Go back to Voiceover/Prompt step
+             />
+           )}
+
+          {/* Step 5: Music Generation */}
           {step === 5 && scriptData && imageData.length > 0 && (
-            <MusicGeneration 
+            <MusicGeneration
               script={scriptData.script}
+              // Pass original voiceover base64 if MusicGeneration needs it
               audioBase64={voiceoverData?.audioBase64}
               onMusicGenerated={handleMusicGenerated}
-              onBack={() => setStep(4)}
+              onBack={() => setStep(4)} // Go back to Image Generation
             />
           )}
-          
-          {step === 6 && imageData.length > 0 && musicData && (
-            <VideoGeneration 
+
+          {/* Step 6: Video Creation */}
+          {step === 6 && imageData.length > 0 && musicData && voiceoverData && (
+            <VideoGeneration
               script={scriptData.script}
               title={scriptData.title}
-              voiceoverAudio={voiceoverData?.audioBase64}
-              images={imageData}
-              musicAudio={musicData}
+              // Pass original voiceover base64
+              voiceoverAudio={voiceoverData.audioBase64}
+              // Map image data as before
+              images={imageData.map((imgBase64, index) => ({
+                // Use timestamp from finalImagePrompts if available and lengths match, else use index
+                timestamp: finalImagePrompts && finalImagePrompts[index] ? finalImagePrompts[index].timestamp : index,
+                imageBase64: imgBase64
+              }))}
+              musicAudio={musicData} // Pass music URL
               onVideoGenerated={handleVideoGenerated}
-              onBack={() => setStep(5)}
+              onBack={() => setStep(5)} // Go back to Music Generation
             />
           )}
-          
+
+          {/* Step 7: Video Preview */}
           {step === 7 && videoData && (
-            <VideoPreview 
-              videoUrl={videoData.videoUrl} 
+            <VideoPreview
+              videoUrl={videoData.videoUrl}
               onReset={handleReset}
             />
           )}
