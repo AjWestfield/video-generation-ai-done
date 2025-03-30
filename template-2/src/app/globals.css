@@ -174,3 +174,21 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: 0 0 15px rgba(var(--neon-blue), 0.5);
   }
 }
+
+/* Add custom toggle switch styles */
+.toggle-checkbox {
+  right: 0;
+  z-index: 5;
+  transition: all 0.3s;
+  border-color: #4b5563;
+}
+
+.toggle-checkbox:checked {
+  right: 5px;
+  border-color: rgba(var(--accent-purple), 0.8);
+}
+
+.toggle-label {
+  width: 100%;
+  transition: all 0.3s;
+}

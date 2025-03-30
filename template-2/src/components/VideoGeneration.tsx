@@ -2,21 +2,21 @@ import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 
 interface VideoGenerationProps {
-  images: string[];
-  audioBase64: string;
-  timedImages?: { timestamp: number; imageBase64: string }[];
-  backgroundMusic?: string;
-  soundEffects?: any[]; // Keep for backward compatibility but won't use
+  script: string;
+  title: string;
+  voiceoverAudio: string;
+  images: { timestamp: number; imageBase64: string }[];
+  musicAudio: string;
   onVideoGenerated: (videoData: any) => void;
   onBack: () => void;
 }
 
 const VideoGeneration: React.FC<VideoGenerationProps> = ({
+  script,
+  title,
+  voiceoverAudio,
   images,
-  audioBase64,
-  timedImages,
-  backgroundMusic,
-  soundEffects,
+  musicAudio,
   onVideoGenerated,
   onBack,
 }) => {
@@ -51,10 +51,9 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          images,
-          timedImages,
-          audioBase64,
-          backgroundMusic,
+          timedImages: images,
+          audioBase64: voiceoverAudio,
+          backgroundMusic: musicAudio,
           duration: 15, // Default duration in seconds
         }),
       });
@@ -92,15 +91,15 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
       <div className="text-center">
         <h2 className="text-2xl font-bold text-white">Video Generation</h2>
         <p className="text-gray-400 mt-2">
-          Combining your {timedImages ? "timed " : ""}images, voiceover
-          {backgroundMusic ? ", and background music" : ""} to create a seamless video...
+          Combining your timed images, voiceover
+          {musicAudio ? ", and background music" : ""} to create a seamless video...
         </p>
-        {timedImages && (
+        {images && (
           <p className="text-xs text-gray-500 mt-1">
-            Using {timedImages.length} images with precise timestamps for better synchronization
+            Using {images.length} images with precise timestamps for better synchronization
           </p>
         )}
-        {backgroundMusic && (
+        {musicAudio && (
           <p className="text-xs text-gray-500 mt-1">
             Adding AI-generated background music to enhance your video
           </p>
@@ -165,7 +164,7 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
                   ) : progress < 60 ? (
                     "Preparing audio..."
                   ) : progress < 80 ? (
-                    backgroundMusic ? "Mixing audio tracks..." : "Adding audio track to video..."
+                    musicAudio ? "Mixing audio tracks..." : "Adding audio track to video..."
                   ) : (
                     "Finalizing and optimizing video..."
                   )}

@@ -33,101 +33,97 @@ export async function POST(request: Request) {
       
       console.log(`Generating image for timestamp ${timestamp} with prompt: ${sanitizedPrompt.substring(0, 100)}...`);
       
+      const versionId = "b744535cf2bf3c4cf2130d0cc75cd4795b280215f8275b041015fb4f9917cbcd"; // Correct version
+      let finalImageUrl: string | null = null;
+      let finalBase64Image: string | null = null;
+
       try {
-        const output = await replicate.run(
-          process.env.REPLICATE_IMAGE_MODEL_ID || "black-forest-labs/flux-schnell",
-          {
-            input: {
-              prompt: sanitizedPrompt,
-              aspect_ratio: "16:9",
-              output_format: "png",
-              output_quality: 100,
-              go_fast: true,
-              megapixels: "1",
-              num_outputs: 1,
-              num_inference_steps: 4, // Maximum allowed value for this model
-              negative_prompt: "blurry, low quality, cartoon, 3d, painting, drawing, low resolution, square format, portrait orientation, vertical, vertical format, vertical orientation, text, watermark, signature, label, words, characters, nudity, naked, nude, nsfw content",
-            },
-          }
-        );
-        
-        // Get the image as base64 for easier handling
-        const imageUrl = Array.isArray(output) && output.length > 0 ? output[0] : null;
-        
-        if (imageUrl) {
-          const imageResponse = await fetch(imageUrl);
-          const blob = await imageResponse.blob();
-          
-          // Convert to base64
-          const arrayBuffer = await blob.arrayBuffer();
-          const base64Image = Buffer.from(arrayBuffer).toString('base64');
-          
-          results.push({
-            timestamp,
-            imageUrl,
-            imageBase64: `data:image/png;base64,${base64Image}`
-          });
-          
-          console.log(`Successfully generated image for timestamp ${timestamp}`);
-        } else {
-          throw new Error(`Failed to generate image for prompt at timestamp ${timestamp}`);
+        // --- Initial Generation Attempt ---
+        const prediction = await replicate.predictions.create({
+          version: versionId,
+          input: {
+            prompt: sanitizedPrompt,
+            aspect_ratio: "16:9",
+            output_format: "png",
+            output_quality: 100,
+            prompt_upsampling: true,
+          },
+        });
+        const completedPrediction = await replicate.wait(prediction);
+
+        if (completedPrediction.status === "failed" || completedPrediction.status === "canceled") {
+          // Convert error object to string before throwing
+          const errorMsg = completedPrediction.error ? JSON.stringify(completedPrediction.error) : "Prediction failed or canceled";
+          throw new Error(errorMsg);
         }
-      } catch (error) {
+        finalImageUrl = completedPrediction.output as string;
+        if (!finalImageUrl) {
+          throw new Error("Prediction succeeded but output URL was missing");
+        }
+        console.log(`Successfully generated image for timestamp ${timestamp}`);
+
+      } catch (error: any) {
         console.error(`Error generating image for timestamp ${timestamp}:`, error);
-        
-        // Create a fallback image for NSFW content errors
-        if (error.message?.includes("NSFW")) {
+
+        // --- NSFW Fallback Attempt ---
+        if (error?.message?.includes("NSFW") || error?.toString().includes("NSFW")) {
           console.log(`Creating alternative image for NSFW content at timestamp ${timestamp}`);
-          
-          // Generate a modified prompt that will avoid NSFW filters
           const alternativePrompt = createAlternativePrompt(sanitizedPrompt);
-          
           try {
-            // Try again with the alternative prompt
-            const alternativeOutput = await replicate.run(
-              process.env.REPLICATE_IMAGE_MODEL_ID || "black-forest-labs/flux-schnell",
-              {
-                input: {
-                  prompt: alternativePrompt,
-                  aspect_ratio: "16:9",
-                  output_format: "png",
-                  output_quality: 100,
-                  go_fast: true,
-                  megapixels: "1",
-                  num_outputs: 1,
-                  num_inference_steps: 4,
-                  negative_prompt: "blurry, low quality, cartoon, 3d, painting, drawing, low resolution, square format, portrait orientation, vertical, vertical format, vertical orientation, text, watermark, signature, label, words, characters, nudity, naked, nude, nsfw content",
-                },
-              }
-            );
-            
-            const alternativeImageUrl = Array.isArray(alternativeOutput) && alternativeOutput.length > 0 ? alternativeOutput[0] : null;
-            
-            if (alternativeImageUrl) {
-              const imageResponse = await fetch(alternativeImageUrl);
-              const blob = await imageResponse.blob();
-              
-              // Convert to base64
-              const arrayBuffer = await blob.arrayBuffer();
-              const base64Image = Buffer.from(arrayBuffer).toString('base64');
-              
-              results.push({
-                timestamp,
-                imageUrl: alternativeImageUrl,
-                imageBase64: `data:image/png;base64,${base64Image}`
-              });
-              
-              console.log(`Successfully generated alternative image for timestamp ${timestamp}`);
+            const altPrediction = await replicate.predictions.create({
+              version: versionId,
+              input: {
+                prompt: alternativePrompt,
+                aspect_ratio: "16:9",
+                output_format: "png",
+                output_quality: 100,
+                prompt_upsampling: true,
+              },
+            });
+            const completedAltPrediction = await replicate.wait(altPrediction);
+
+            if (completedAltPrediction.status === "failed" || completedAltPrediction.status === "canceled") {
+               // Convert error object to string before throwing
+               const altErrorMsg = completedAltPrediction.error ? JSON.stringify(completedAltPrediction.error) : "Alternative prediction failed or canceled";
+               throw new Error(altErrorMsg);
+            }
+            finalImageUrl = completedAltPrediction.output as string; // Use alternative URL
+            if (!finalImageUrl) {
+              console.error("Alternative image generation succeeded but output URL was missing.");
+              finalImageUrl = null; // Ensure we don't proceed if URL is missing
             } else {
-              throw new Error("Alternative image generation failed");
+               console.log(`Successfully generated alternative image for timestamp ${timestamp}`);
             }
           } catch (alternativeError) {
             console.error(`Alternative image generation failed:`, alternativeError);
-            // If all else fails, continue without this image
+            finalImageUrl = null; // Ensure we don't proceed if alternative fails
           }
         }
+        // If error was not NSFW or alternative failed, finalImageUrl remains null
       }
-      
+
+      // --- Process the final image URL (if one was successfully obtained) ---
+      if (finalImageUrl) {
+        try {
+          const imageResponse = await fetch(finalImageUrl);
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image URL: ${imageResponse.statusText}`);
+          }
+          const blob = await imageResponse.blob();
+          const arrayBuffer = await blob.arrayBuffer();
+          finalBase64Image = `data:${blob.type};base64,${Buffer.from(arrayBuffer).toString('base64')}`;
+
+          results.push({
+            timestamp,
+            imageUrl: finalImageUrl,
+            imageBase64: finalBase64Image,
+          });
+        } catch (fetchError) {
+           console.error(`Error fetching or converting image for timestamp ${timestamp}:`, fetchError);
+           // Continue without adding this image if fetching/conversion fails
+        }
+      }
+
       // Add a small delay between requests to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 200));
     }
@@ -165,4 +161,4 @@ function createAlternativePrompt(originalPrompt: string): string {
   
   // Generic alternative that preserves the theme but removes potential NSFW content
   return "photo realistic A symbolic scene representing human experience in a lush garden setting. Figures draped in flowing white garments exist in harmony with nature. Golden hour lighting creates a mystical atmosphere with dramatic shadows. 16:9 aspect ratio, landscape orientation";
-} 
+}

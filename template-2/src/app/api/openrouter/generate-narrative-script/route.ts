@@ -7,7 +7,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { prompt, duration = 1 } = await request.json();
+  const { prompt, duration = 1, storyStructure = "standard" } = await request.json();
   
   // Calculate target word count based on duration
   const targetWordCount = duration * 180; // 180 words per minute
@@ -20,10 +20,13 @@ export async function POST(request: Request) {
   const maxGenerationAttempts = 3;
   let generationAttempt = 0;
   let finalScript = null;
+  
+  // Get narrative structure prompt based on requested structure type
+  const narrativePrompt = getNarrativeStructurePrompt(storyStructure);
 
   while (generationAttempt < maxGenerationAttempts && finalScript === null) {
     generationAttempt++;
-    console.log(`Script generation attempt ${generationAttempt} of ${maxGenerationAttempts}`);
+    console.log(`Narrative script generation attempt ${generationAttempt} of ${maxGenerationAttempts}`);
     
     try {
       // Implement retry mechanism for API calls
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
 
       while (retryCount < maxRetries && !responseData) {
         try {
-          console.log(`Attempt ${retryCount + 1} to call OpenRouter API...`);
+          console.log(`Attempt ${retryCount + 1} to call OpenRouter API for narrative script...`);
           
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
               messages: [
                 {
                   role: "system",
-                  content: `You are a professional video script writer. Create a concise and engaging script based on the user's idea.
+                  content: `You are a professional storyteller and scriptwriter. Create an engaging narrative script based on the user's idea.
                   
                   IMPORTANT WORD COUNT REQUIREMENTS:
                   - The script MUST contain EXACTLY between ${minWordCount} and ${maxWordCount} words
@@ -67,19 +70,11 @@ export async function POST(request: Request) {
                   - Structure the script with proper paragraphs and natural breaks
                   - ONLY return text that will be narrated in the voiceover
                   
-                  NARRATIVE STRUCTURE REQUIREMENTS:
-                  - Create a complete, cohesive storyline with a clear beginning, middle, and end
-                  - Beginning: Introduce the central idea/character/setting and establish a hook or problem
-                  - Middle: Develop the idea with supporting details, conflicts, or exploration
-                  - End: Provide resolution, conclusion, or call-to-action that ties back to the beginning
-                  - Ensure narrative flow feels natural and engaging, not disjointed
-                  - Create a compelling narrative arc with rising action and resolution
-                  - Include clear transitions between major sections to maintain flow
+                  ${narrativePrompt}
                   
                   CRITICAL QUALITY REQUIREMENTS:
                   - Every sentence MUST be unique - DO NOT repeat sentences or phrases
                   - DO NOT use repetitive sentence structures
-                  - Ensure the script has a coherent structure with a clear beginning, middle, and end
                   - Maintain context throughout the entire script
                   - Create a narrative flow with a storyline that develops naturally
                   - Vary sentence length and structure to maintain engagement
@@ -96,8 +91,8 @@ export async function POST(request: Request) {
                   content: prompt,
                 },
               ],
-              max_tokens: 2000,
-              temperature: 0.7,
+              max_tokens: 2500,
+              temperature: 0.75,
             }),
             signal: controller.signal,
           });
@@ -144,14 +139,14 @@ export async function POST(request: Request) {
       const content = data.choices[0].message.content;
       console.log("Raw model response:", content);
       
-      // Handle JSON parsing more robustly
+      // Process the response
       let parsedContent;
       try {
-        // Check if the content is already valid JSON
+        // Try to parse the content as JSON
         try {
           parsedContent = JSON.parse(content);
         } catch (initialParseError) {
-          // Look for JSON content in the response - find anything between curly braces
+          // Look for JSON content in the response
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           
           if (!jsonMatch) {
@@ -159,37 +154,29 @@ export async function POST(request: Request) {
           }
           
           let jsonContent = jsonMatch[0];
-          
-          // Remove any backticks and "json" prefix that might be in the response
           jsonContent = jsonContent.replace(/```json|```/g, "").trim();
           
-          // Fix common JSON issues: escape unescaped quotes in the script content
-          // This regex handles properly escaping double quotes within the "script" value
+          // Fix common JSON issues
           jsonContent = jsonContent.replace(/"script"\s*:\s*"((?:\\.|[^"\\])*)"/g, (match, p1) => {
-            // Replace any unescaped quotes within the script content
             const escapedScript = p1.replace(/(?<!\\)"/g, '\\"');
             return `"script": "${escapedScript}"`;
           });
           
-          // Try to parse the fixed JSON
           parsedContent = JSON.parse(jsonContent);
         }
         
-        // Validate that the response has required fields
+        // Validate response
         if (!parsedContent.script) {
           throw new Error("Missing script field in JSON response");
         }
         
       } catch (e) {
         console.error("JSON parse error:", e);
-        console.error("Attempted to parse:", content.substring(0, 500) + "...");
         
-        // Try an alternative approach - extract script content directly
+        // Try alternative extraction
         try {
-          // Use a more flexible regex to extract the script content
           const scriptMatch = content.match(/"script"\s*:\s*"([^]*?)(?:"(?:\s*\}|\s*,))/);
           if (scriptMatch && scriptMatch[1]) {
-            // Clean up and decode the extracted script content
             const scriptContent = scriptMatch[1]
               .replace(/\\n/g, "\n")
               .replace(/\\"/g, '"')
@@ -204,18 +191,18 @@ export async function POST(request: Request) {
         } catch (extractError) {
           console.error("Extraction error:", extractError);
           
-          // Emergency fallback - generate a basic structure if parsing fails
+          // Emergency fallback
           parsedContent = {
-            script: "Sorry, there was an issue generating your script. Please try again with a different prompt."
+            script: "Sorry, there was an issue generating your narrative script. Please try again with a different prompt."
           };
         }
       }
 
-      // Convert any \n in the script to actual newlines for display
+      // Process script
       if (parsedContent.script) {
         parsedContent.script = parsedContent.script.replace(/\\n/g, "\n");
         
-        // Clean the script to ensure ONLY narration text is included
+        // Clean script text
         parsedContent.script = cleanScriptText(parsedContent.script);
         
         // Check for duplicate sentences
@@ -223,73 +210,107 @@ export async function POST(request: Request) {
         
         if (duplicateCheck.hasDuplicates) {
           console.log(`Found ${duplicateCheck.duplicateCount} duplicate sentences in attempt ${generationAttempt}.`);
-          console.log("Duplicate sentences:", duplicateCheck.duplicateSentences.slice(0, 3));
-          
-          // Continue to next attempt if duplicates found
           continue;
         }
         
-        // Calculate the original word count
+        // Check word count
         const originalWordCount = parsedContent.script.trim().split(/\s+/).length;
         console.log(`Original word count: ${originalWordCount}, Target: ${targetWordCount}-${maxWordCount}`);
         
-        // Verify the word count and adjust if necessary
+        // Adjust word count if needed
         if (originalWordCount < minWordCount) {
-          console.log(`Script is too short (${originalWordCount} words). Expanding to reach at least ${minWordCount} words.`);
+          console.log(`Script is too short. Expanding to reach at least ${minWordCount} words.`);
           parsedContent.script = expandScript(parsedContent.script, minWordCount);
-          const expandedWordCount = parsedContent.script.trim().split(/\s+/).length;
-          console.log(`After expansion: ${expandedWordCount} words`);
-          
-          // Check again for duplicate sentences after expansion
-          const postExpansionCheck = checkForDuplicateSentences(parsedContent.script);
-          if (postExpansionCheck.hasDuplicates) {
-            console.log(`Found duplicates after expansion in attempt ${generationAttempt}.`);
-            continue;
-          }
         } else if (originalWordCount > maxWordCount) {
-          console.log(`Script is too long (${originalWordCount} words). Reducing to max ${maxWordCount} words.`);
+          console.log(`Script is too long. Reducing to max ${maxWordCount} words.`);
           parsedContent.script = reduceScript(parsedContent.script, maxWordCount);
-          const reducedWordCount = parsedContent.script.trim().split(/\s+/).length;
-          console.log(`After reduction: ${reducedWordCount} words`);
-        } else {
-          console.log(`Script length is acceptable (${originalWordCount} words).`);
         }
         
-        // Final check - if still too short, force expansion with generic content
-        const finalWordCount = parsedContent.script.trim().split(/\s+/).length;
-        if (finalWordCount < minWordCount) {
-          console.log(`Script still too short after adjustment. Forcing expansion with safe non-repetitive content.`);
-          parsedContent.script = safeForcedExpansion(parsedContent.script, prompt, minWordCount, duplicateCheck.sentenceMap);
-          const forcedWordCount = parsedContent.script.trim().split(/\s+/).length;
-          console.log(`After forced expansion: ${forcedWordCount} words`);
-          
-          // One final check for duplicates after forced expansion
-          const finalDuplicateCheck = checkForDuplicateSentences(parsedContent.script);
-          if (finalDuplicateCheck.hasDuplicates) {
-            console.log(`Found duplicates after forced expansion in attempt ${generationAttempt}.`);
-            continue;
-          }
-        }
-        
-        // If we've made it this far, the script has no duplicates and meets length requirements
+        // If everything looks good, set final script
         finalScript = parsedContent.script;
       }
     } catch (error) {
       console.error(`Error in generation attempt ${generationAttempt}:`, error);
-      // Continue to next attempt if an error occurs
     }
   }
   
-  // If we couldn't generate a script without duplicates after all attempts
+  // If all attempts failed
   if (!finalScript) {
-    console.error("Failed to generate a script without duplicates after all attempts");
+    console.error("Failed to generate a narrative script after all attempts");
     return NextResponse.json(
-      { error: "Could not generate a valid script after multiple attempts. Please try again with a different prompt." },
+      { error: "Could not generate a valid narrative script. Please try again with a different prompt." },
       { status: 500 }
     );
   }
   
-  return NextResponse.json({ script: finalScript }, { status: 200 });
+  return NextResponse.json({ 
+    script: finalScript,
+    storyStructure
+  }, { status: 200 });
+}
+
+// Returns the appropriate narrative structure prompt based on the requested structure
+function getNarrativeStructurePrompt(storyStructure: string): string {
+  const structures = {
+    standard: `NARRATIVE STRUCTURE REQUIREMENTS - STANDARD THREE-ACT:
+    - Follow the classic three-act structure:
+      - Beginning (Act 1): Set up the situation, introduce main elements, and establish a hook
+      - Middle (Act 2): Develop the central conflict or exploration with rising action
+      - End (Act 3): Provide resolution and conclusion that ties back to the beginning
+    - Ensure each act flows naturally into the next with clear but smooth transitions
+    - Create a compelling narrative arc with rising tension and satisfying resolution
+    - Begin with an engaging hook that draws the listener in immediately
+    - End with a memorable conclusion that provides closure`,
+
+    hero: `NARRATIVE STRUCTURE REQUIREMENTS - HERO'S JOURNEY:
+    - Follow a simplified hero's journey structure:
+      - Ordinary World: Establish the initial situation or status quo
+      - Call to Adventure: Present a challenge, opportunity, or problem
+      - Journey/Trials: Describe the process of facing obstacles and growth
+      - Transformation: Show how the subject changes or what is discovered
+      - Return/Resolution: Conclude with lessons learned and resolution
+    - Create clear character development or transformation through the narrative
+    - Focus on challenges and how they are overcome
+    - Emphasize the emotional journey alongside factual content
+    - End with a sense of growth, revelation, or change`,
+
+    problem: `NARRATIVE STRUCTURE REQUIREMENTS - PROBLEM-SOLUTION:
+    - Structure the narrative around a clear problem-solution framework:
+      - Introduction: Present a compelling problem or challenge
+      - Background: Provide context about why this problem matters
+      - Complications: Explore the nuances or difficulties of the issue
+      - Solution: Present the key insights or solutions
+      - Implementation: Describe how these solutions can be applied
+      - Results: Show the potential or actual outcomes
+    - Begin by establishing why the listener should care about this problem
+    - Create emotional investment in finding the solution
+    - Build tension as the problem is explored before revealing solutions
+    - End with clear takeaways or calls to action`,
+
+    inverted: `NARRATIVE STRUCTURE REQUIREMENTS - INVERTED PYRAMID:
+    - Structure the narrative like an inverted pyramid:
+      - Start with the most important information or conclusion first
+      - Follow with supporting details in decreasing order of importance
+      - End with background or contextual information
+    - Begin with a powerful summary that captures the key points
+    - Each subsequent section should add depth rather than new critical information
+    - Designed for information efficiency while maintaining narrative interest
+    - Even with this structure, maintain a cohesive storyline throughout`,
+
+    circular: `NARRATIVE STRUCTURE REQUIREMENTS - CIRCULAR NARRATIVE:
+    - Structure the story to begin and end in the same place:
+      - Opening: Start with a compelling scene, image, or statement
+      - Background: Move to explain how we arrived at the opening
+      - Journey: Progress through the main narrative exploration
+      - Return: Circle back to the opening with new perspective or understanding
+    - The opening and closing should mirror each other but with transformed understanding
+    - Create a sense of completion and symmetry
+    - The journey between start and end should provide discovery and insight
+    - Ensure the return to the beginning feels meaningful rather than repetitive`
+  };
+
+  // Return the requested structure or default to standard if not found
+  return structures[storyStructure as keyof typeof structures] || structures.standard;
 }
 
 // Function to clean script text to ensure only narration is included
@@ -317,7 +338,7 @@ function cleanScriptText(script: string): string {
 
 // Function to check for duplicate sentences in a script
 function checkForDuplicateSentences(script: string) {
-  // Split text into sentences using a more sophisticated regex that handles ellipses, quotes, etc.
+  // Split text into sentences
   const sentences = script.match(/[^.!?]+[.!?]+(?:\s+|$)/g) || [];
   
   // Map to store normalized sentences we've seen
@@ -326,10 +347,10 @@ function checkForDuplicateSentences(script: string) {
   
   // Process each sentence
   for (const sentence of sentences) {
-    // Normalize the sentence (trim, lowercase, remove excess whitespace)
+    // Normalize the sentence
     const normalized = sentence.trim().toLowerCase().replace(/\s+/g, ' ');
     
-    // Skip very short sentences (less than 4 words) as they're more likely to be common phrases
+    // Skip very short sentences
     if (normalized.split(/\s+/).length < 4) {
       continue;
     }
@@ -354,79 +375,6 @@ function checkForDuplicateSentences(script: string) {
   };
 }
 
-// Safe forced expansion function that avoids adding duplicate sentences
-function safeForcedExpansion(script: string, topic: string, targetWordCount: number, existingSentences: Map<string, number>): string {
-  const currentWordCount = script.trim().split(/\s+/).length;
-  if (currentWordCount >= targetWordCount) {
-    return script;
-  }
-  
-  // Unique expansion sentences that are unlikely to be in the script already
-  const uniqueExpansionSentences = [
-    "This experience reminds us how fragile our sense of security can be.",
-    "Even in familiar places, the unexpected can happen.",
-    "Many people have similar stories that challenge what we think we know about the world around us.",
-    "The human mind is fascinating in how it processes fear and the unknown.",
-    "When faced with unexplainable events, we often try to rationalize them.",
-    "We find comfort in logical explanations for unusual occurrences.",
-    "Some experiences defy easy explanation and leave us wondering.",
-    "What makes these stories compelling is their universal appeal.",
-    "We all understand the feeling of vulnerability in unfamiliar situations.",
-    "These moments connect us to our most primal instincts and emotions.",
-    "Throughout history, similar narratives have appeared across different cultures.",
-    "These stories help us process our collective anxieties about the unknown.",
-    "Whether you believe in supernatural explanations or scientific ones, mystery still exists.",
-    "An open mind allows us to consider possibilities beyond our everyday experiences.",
-    "Our perception of reality is shaped by both what we know and what we've yet to discover."
-  ];
-  
-  // Filter out sentences that are too similar to existing ones
-  const filteredSentences = uniqueExpansionSentences.filter(sentence => {
-    const normalized = sentence.toLowerCase().trim();
-    // Check if this sentence or anything very similar exists in our map
-    return ![...existingSentences.keys()].some(existing => 
-      normalized.includes(existing) || 
-      existing.includes(normalized) ||
-      calculateSimilarity(normalized, existing) > 0.7); // 70% similarity threshold
-  });
-  
-  // Add sentences until we reach the target word count
-  let expandedScript = script;
-  let currentCount = currentWordCount;
-  let sentenceIndex = 0;
-  
-  // Create a paragraph of expansion sentences
-  const expansionParagraph = [];
-  
-  while (currentCount < targetWordCount && sentenceIndex < filteredSentences.length) {
-    const sentenceToAdd = filteredSentences[sentenceIndex];
-    expansionParagraph.push(sentenceToAdd);
-    currentCount += sentenceToAdd.split(/\s+/).length;
-    sentenceIndex++;
-  }
-  
-  // Add the expansion paragraph if we have sentences to add
-  if (expansionParagraph.length > 0) {
-    expandedScript += "\n\n" + expansionParagraph.join(" ");
-  }
-  
-  return expandedScript;
-}
-
-// Simple similarity function based on character overlap
-function calculateSimilarity(str1: string, str2: string): number {
-  // Convert strings to character sets
-  const set1 = new Set(str1.split(''));
-  const set2 = new Set(str2.split(''));
-  
-  // Calculate intersection and union
-  const intersection = new Set([...set1].filter(x => set2.has(x)));
-  const union = new Set([...set1, ...set2]);
-  
-  // Return Jaccard similarity: intersection size / union size
-  return intersection.size / union.size;
-}
-
 // Function to expand a script to meet minimum word count
 function expandScript(script: string, targetWordCount: number): string {
   const currentWordCount = script.trim().split(/\s+/).length;
@@ -435,19 +383,30 @@ function expandScript(script: string, targetWordCount: number): string {
     return script; // Already meets the minimum
   }
   
-  // Generic expansion sentences that can work with most scripts
-  const expansionSentences = [
-    "This is something worth considering in more detail.",
-    "Let's take a moment to reflect on what this means.",
-    "The implications of this are far-reaching and significant.",
-    "Many people often overlook this important aspect.",
-    "It's fascinating to consider how this impacts our daily lives.",
-    "There's more to this story than meets the eye.",
-    "This perspective offers valuable insights into the topic.",
-    "When we examine this more closely, we discover additional layers of complexity.",
-    "This highlights an essential point that deserves our attention.",
-    "It's worth taking the time to fully appreciate this concept."
-  ];
+  // Narrative expansion sentences grouped by where they might appear in the story
+  const expansionSentences = {
+    beginning: [
+      "This story begins in a way that might seem familiar yet holds unexpected turns.",
+      "The journey we're about to embark on has deeper significance than first appears.",
+      "As our narrative unfolds, consider how these events connect to universal experiences.",
+      "Before we delve deeper, it's worth considering the broader context.",
+      "The setting of our story creates an atmosphere that shapes everything that follows."
+    ],
+    middle: [
+      "This moment represents a turning point that changes the trajectory of events.",
+      "The complexities of this situation reveal themselves in layers.",
+      "What happens next challenges our initial expectations.",
+      "Consider how these developments reflect a transformation taking place.",
+      "The tension builds as we approach a critical moment of decision."
+    ],
+    end: [
+      "As this story concludes, we're left with insights that resonate beyond the specific events.",
+      "The resolution brings us full circle while revealing new understanding.",
+      "What began as one journey has transformed into something more meaningful.",
+      "The conclusion offers both closure and new possibilities to consider.",
+      "Looking back at where we started, we can appreciate the significance of this journey."
+    ]
+  };
   
   // Split the script into paragraphs
   let paragraphs = script.split("\n\n");
@@ -458,10 +417,14 @@ function expandScript(script: string, targetWordCount: number): string {
     paragraphs = [script];
   }
   
+  // Determine which part of the narrative each paragraph belongs to
+  const totalParagraphs = paragraphs.length;
+  const beginningEnd = Math.floor(totalParagraphs * 0.3);
+  const middleEnd = Math.floor(totalParagraphs * 0.7);
+  
   // Add expansion sentences to paragraphs until we reach the target word count
   let expandedScript = "";
   let currentCount = currentWordCount;
-  let expansionIndex = 0;
   
   for (let i = 0; i < paragraphs.length && currentCount < targetWordCount; i++) {
     // Add the original paragraph
@@ -469,11 +432,19 @@ function expandScript(script: string, targetWordCount: number): string {
     
     // Add expansion sentences if we still need more words
     if (currentCount < targetWordCount) {
-      // Add one expansion sentence per paragraph until we reach the target
-      const sentenceToAdd = expansionSentences[expansionIndex % expansionSentences.length];
+      // Select appropriate expansion sentences based on narrative position
+      let sentenceSet = expansionSentences.middle;
+      if (i < beginningEnd) {
+        sentenceSet = expansionSentences.beginning;
+      } else if (i >= middleEnd) {
+        sentenceSet = expansionSentences.end;
+      }
+      
+      // Add one expansion sentence
+      const sentenceIndex = i % sentenceSet.length;
+      const sentenceToAdd = sentenceSet[sentenceIndex];
       expandedScript += " " + sentenceToAdd;
       currentCount += sentenceToAdd.split(/\s+/).length;
-      expansionIndex++;
     }
     
     expandedScript += "\n\n";
@@ -481,24 +452,8 @@ function expandScript(script: string, targetWordCount: number): string {
   
   // If we still need more words, add a concluding paragraph
   if (currentCount < targetWordCount) {
-    const remainingWordsNeeded = targetWordCount - currentCount;
-    const concludingSentences = [
-      "In conclusion, this topic continues to fascinate and engage audiences around the world.",
-      "As we've explored throughout this discussion, there are multiple perspectives to consider.",
-      "Ultimately, the significance of this cannot be overstated.",
-      "Looking ahead, we can anticipate further developments in this area.",
-      "This is certainly a subject worthy of our continued attention and reflection."
-    ];
-    
-    const selectedConclusions = [];
-    let wordsAdded = 0;
-    
-    for (let i = 0; i < concludingSentences.length && wordsAdded < remainingWordsNeeded; i++) {
-      selectedConclusions.push(concludingSentences[i]);
-      wordsAdded += concludingSentences[i].split(/\s+/).length;
-    }
-    
-    expandedScript += selectedConclusions.join(" ");
+    expandedScript += "As we reflect on this narrative, we recognize themes that connect to our own experiences. The story's journey reminds us of the universal elements that bind all compelling tales: transformation, realization, and the continuous search for meaning in our shared human experience.\n\n";
+    currentCount += 40; // Approximate word count of the added paragraph
   }
   
   return expandedScript.trim();
@@ -520,7 +475,6 @@ function reduceScript(script: string, maxWordCount: number): string {
   const lastPeriodIndex = truncatedText.lastIndexOf(".");
   if (lastPeriodIndex !== -1 && lastPeriodIndex > truncatedText.length * 0.8) {
     // Only truncate at the last period if it's in the last 20% of the text
-    // This prevents cutting off too much content
     truncatedText = truncatedText.substring(0, lastPeriodIndex + 1);
   }
   

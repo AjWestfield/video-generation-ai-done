@@ -6,14 +6,19 @@ This is a web application that generates videos from ideas using AI. It leverage
 
 - Input a simple video idea or concept
 - Generate a professional script using OpenRouter's Gemini AI
+- Choose between standard script or storytelling mode with various narrative structures
 - Create high-quality voice overs with ElevenLabs
-- Generate stunning visuals with Replicate's Flux model
+- Generate stunning visuals with Replicate's Flux Pro model
 - Create background music to match the mood
 - Professional audio mixing with broadcast-standard levels
 - Combine everything into a video using FFmpeg
 
 ## Recent Updates
 
+- **Upgraded to Flux 1.1 Pro**: Successfully changed image model to black-forest-labs/flux-1.1-pro for higher quality image generation
+- **Added Storytelling Mode**: New narrative generation with five different story structures (Three-Act, Hero's Journey, Problem-Solution, Inverted Pyramid, Circular Narrative)
+- **Enhanced Image Regeneration**: Added ability to regenerate individual images from focus view modal
+- **Fixed Music Generation Workflow**: Improved music generation component to properly use voiceover audio duration
 - **Removed Sound Effects Processing**: Simplified the audio pipeline by removing sound effects for better reliability
 - **Optimized Audio Levels**: Implemented broadcast-standard audio levels (-16 LUFS for voice, -24 LUFS for music)
 - **Streamlined Workflow**: Removed the sound effects step from the video creation process
@@ -29,7 +34,7 @@ This is a web application that generates videos from ideas using AI. It leverage
 - **AI Services**:
   - OpenRouter (Google Gemini 2.0 Flash) for script generation
   - ElevenLabs for text-to-speech
-  - Replicate (Flux model) for image generation
+  - Replicate (Flux 1.1 Pro model) for image generation
   - Replicate (MusicGen) for background music generation
 - **Video Processing**: FFmpeg for combining images and audio into videos
 - **Audio Processing**: Professional broadcast-standard audio normalization and mixing
@@ -51,7 +56,7 @@ ELEVENLABS_API_KEY=your_elevenlabs_key
 
 # Model IDs
 OPENROUTER_MODEL_ID=google/gemini-2.0-flash-001
-REPLICATE_IMAGE_MODEL_ID=black-forest-labs/flux-schnell
+REPLICATE_IMAGE_MODEL_ID=black-forest-labs/flux-1.1-pro:b744535cf2bf3c4cf2130d0cc75cd4795b280215f8275b041015fb4f9917cbcd
 
 # FFmpeg Configuration (if not in standard path)
 FFMPEG_PATH=/path/to/ffmpeg
@@ -62,21 +67,32 @@ FFMPEG_PATH=/path/to/ffmpeg
 
 ## How It Works
 
-1. Users enter a video idea or concept
+1. Users enter a video idea or concept and can toggle storytelling mode for narrative-focused scripts
 2. The application uses Google Gemini to generate a script and image prompts
+   - In storytelling mode, it creates structured narratives with clear beginning, middle, and end
 3. ElevenLabs converts the script to a natural-sounding voiceover
-4. Replicate's Flux model creates images based on the generated prompts
+4. Replicate's Flux 1.1 Pro model creates photorealistic images based on the generated prompts
 5. Replicate's MusicGen creates background music that matches the mood
 6. Professional audio processing applies broadcast-standard normalization to voice and music
 7. FFmpeg combines the images and mixed audio into a complete video
 8. Users can download or share the final video
 
+## Narrative Structures
+
+The application supports five different story structures in storytelling mode:
+
+- **Three-Act Structure**: Classic beginning, middle, and end structure
+- **Hero's Journey**: Character transformation and growth journey
+- **Problem-Solution**: Presents challenge then builds to solution
+- **Inverted Pyramid**: Most important info first, details follow
+- **Circular Narrative**: Begins and ends at the same place with new insight
+
 ## Image Generation
 
-The application uses Replicate's black-forest-labs/flux-schnell model with optimized parameters:
+The application uses Replicate's black-forest-labs/flux-1.1-pro model with optimized parameters:
 - Native 16:9 aspect ratio for cinematic visuals
 - High-quality PNG output format
-- Quantized fast inference for quick generation
+- Prompt upsampling for improved results
 - Customized negative prompts to prevent unwanted elements
 
 ## Audio Processing

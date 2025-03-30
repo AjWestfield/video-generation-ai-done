@@ -8,23 +8,22 @@ import ImagePromptGeneration from "../components/ImagePromptGeneration";
 import ImageGeneration from "../components/ImageGeneration";
 import TimedImageGeneration from "../components/TimedImageGeneration";
 import MusicGeneration from "../components/MusicGeneration";
-import SoundEffectGeneration from "../components/SoundEffectGeneration";
 import VideoGeneration from "../components/VideoGeneration";
 import VideoPreview from "../components/VideoPreview";
 import ProgressStepper from "../components/ProgressStepper";
 import { Toaster } from "react-hot-toast";
-import { SoundEffect } from "@/services/soundEffectService";
 
 export default function Home() {
   // Define the workflow states
   const [step, setStep] = useState(1);
   const [videoIdea, setVideoIdea] = useState<string>("");
-  const [videoLength, setVideoLength] = useState<string>("short");
+  const [videoDuration, setVideoDuration] = useState<number>(1);
+  const [narrativeMode, setNarrativeMode] = useState<boolean>(false);
+  const [storyStructure, setStoryStructure] = useState<string>("standard");
   const [scriptData, setScriptData] = useState<{ script: string; title: string }>({ script: "", title: "" });
   const [voiceoverData, setVoiceoverData] = useState<{ audioBase64: string; voiceId: string; script: string } | null>(null);
   const [imageData, setImageData] = useState<{ timestamp: number; imageBase64: string }[]>([]);
   const [musicData, setMusicData] = useState<string | null>(null);
-  const [soundEffectsData, setSoundEffectsData] = useState<Array<{ timestamp: number; type: string; audioBase64: string }>>([]);
   const [videoData, setVideoData] = useState<any>(null);
 
   // Steps of the workflow
@@ -42,9 +41,11 @@ export default function Home() {
     setStep(targetStep);
   }, []);
 
-  const handleVideoIdeaSubmit = useCallback((idea: string, length: string) => {
+  const handleVideoIdeaSubmit = useCallback((idea: string, duration: number, isNarrativeMode: boolean, structure: string) => {
     setVideoIdea(idea);
-    setVideoLength(length);
+    setVideoDuration(duration);
+    setNarrativeMode(isNarrativeMode);
+    setStoryStructure(structure);
     setStep(2);
   }, []);
 
@@ -68,26 +69,22 @@ export default function Home() {
     setStep(6);
   }, []);
 
-  const handleSoundEffectsGenerated = useCallback((soundEffects: Array<{ timestamp: number; type: string; audioBase64: string }>) => {
-    setSoundEffectsData(soundEffects);
-    setStep(7);
-  }, []);
-
   // Handle video generation completion
   const handleVideoGenerated = (data: any) => {
     setVideoData(data);
-    setStep(8);
+    setStep(7);
   };
 
   // Reset the workflow
   const handleReset = () => {
     setVideoIdea("");
-    setVideoLength("short");
+    setVideoDuration(1);
+    setNarrativeMode(false);
+    setStoryStructure("standard");
     setScriptData({ script: "", title: "" });
     setVoiceoverData(null);
     setImageData([]);
     setMusicData(null);
-    setSoundEffectsData([]);
     setVideoData(null);
     setStep(1);
   };
@@ -138,7 +135,9 @@ export default function Home() {
           {step === 2 && (
             <ScriptGeneration 
               videoIdea={videoIdea}
-              videoLength={videoLength}
+              videoDuration={videoDuration}
+              narrativeMode={narrativeMode}
+              storyStructure={storyStructure}
               onScriptGenerated={handleScriptGenerated}
               onBack={() => setStep(1)}
             />
@@ -172,28 +171,18 @@ export default function Home() {
           )}
           
           {step === 6 && imageData.length > 0 && musicData && (
-            <SoundEffectGeneration
-              script={scriptData.script}
-              voiceoverAudio={voiceoverData?.audioBase64}
-              onSoundEffectsGenerated={handleSoundEffectsGenerated}
-              onBack={() => setStep(5)}
-            />
-          )}
-          
-          {step === 7 && imageData.length > 0 && musicData && (
             <VideoGeneration 
               script={scriptData.script}
               title={scriptData.title}
               voiceoverAudio={voiceoverData?.audioBase64}
               images={imageData}
               musicAudio={musicData}
-              soundEffects={soundEffectsData}
               onVideoGenerated={handleVideoGenerated}
-              onBack={() => setStep(6)}
+              onBack={() => setStep(5)}
             />
           )}
           
-          {step === 8 && videoData && (
+          {step === 7 && videoData && (
             <VideoPreview 
               videoUrl={videoData.videoUrl} 
               onReset={handleReset}
