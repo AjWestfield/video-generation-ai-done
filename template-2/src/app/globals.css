@@ -112,6 +112,12 @@ h1, h2, h3, h4, h5, h6 {
                 inset 0 0 10px rgba(var(--neon-purple), 0.1);
   }
   
+  .box-glow-strong {
+    box-shadow: 0 0 20px rgba(var(--neon-cyan), 0.7),
+                0 0 30px rgba(var(--neon-blue), 0.4),
+                inset 0 0 10px rgba(var(--neon-cyan), 0.2);
+  }
+  
   .bg-blur {
     backdrop-filter: blur(10px);
   }
