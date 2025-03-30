@@ -73,6 +73,10 @@ export default function Home() {
     // Store the base64 strings in state as before
     setImageData(base64ImageArray);
     
+    // If the user has over 1000 credits, then we store the images in their account
+    // Otherwise we just use IndexedDB for temporary storage
+    const hasPaidAccount = false; // TODO: Replace with actual check
+    
     // Skip IndexedDB if no prompts data is available
     if (finalImagePrompts && finalImagePrompts.length > 0) {
       try {
