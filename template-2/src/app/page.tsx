@@ -12,6 +12,7 @@ import VideoGeneration from "../components/VideoGeneration";
 import VideoPreview from "../components/VideoPreview";
 import ProgressStepper from "../components/ProgressStepper";
 import { Toaster } from "react-hot-toast";
+import { storeImageData } from "../lib/storage"; // Import our storage utility
 
 export default function Home() {
   // Define the workflow states
@@ -22,8 +23,8 @@ export default function Home() {
   const [storyStructure, setStoryStructure] = useState<string>("standard");
   const [scriptData, setScriptData] = useState<{ script: string; title: string }>({ script: "", title: "" });
   const [voiceoverData, setVoiceoverData] = useState<{ audioBase64: string; voiceId: string; script: string } | null>(null);
-  // Add state for the finalized prompts coming from the modified VoiceoverGeneration component
-  const [finalImagePrompts, setFinalImagePrompts] = useState<{ timestamp: number; imagePrompt: string }[] | null>(null);
+  // Update state type to include transcriptSegment
+  const [finalImagePrompts, setFinalImagePrompts] = useState<{ timestamp: number; imagePrompt: string; transcriptSegment: string }[] | null>(null);
   const [imageData, setImageData] = useState<string[]>([]); // ImageGeneration still expects string[] (base64)
   const [musicData, setMusicData] = useState<string | null>(null);
   const [videoData, setVideoData] = useState<any>(null);
@@ -57,22 +58,47 @@ export default function Home() {
   }, []);
 
   // Modified callback for VoiceoverGeneration component
-  // It now provides both original voiceover data AND the finalized prompts
+  // Update type to expect transcriptSegment
   const handleVoiceoverAndPromptsGenerated = useCallback((data: {
     voiceover: { audioBase64: string; voiceId: string; script: string };
-    finalPrompts: { timestamp: number; imagePrompt: string }[];
+    finalPrompts: { timestamp: number; imagePrompt: string; transcriptSegment: string }[];
   }) => {
     setVoiceoverData(data.voiceover);
-    setFinalImagePrompts(data.finalPrompts);
+    setFinalImagePrompts(data.finalPrompts); // Store the complete data including transcriptSegment
     setStep(4); // Go to Image Generation
   }, []);
 
+  // Callback for ImageGeneration component now stores images in IndexedDB
+  const handleImagesGenerated = useCallback(async (base64ImageArray: string[]) => {
+    // Store the base64 strings in state as before
+    setImageData(base64ImageArray);
+    
+    // Skip IndexedDB if no prompts data is available
+    if (finalImagePrompts && finalImagePrompts.length > 0) {
+      try {
+        // Update the store location where the base64 image strings are saved
+        const imageData = base64ImageArray.map((base64, index) => {
+          // Find corresponding prompt
+          const timestamp = finalImagePrompts[index].timestamp;
+          
+          // For now, we're just separating the prompts by timestamp
+          return {
+            timestamp: timestamp,
+            imageBase64: base64,
+          };
+        });
 
-  // Callback for ImageGeneration component remains the same
-  const handleImagesGenerated = useCallback((images: string[]) => {
-    setImageData(images);
+        // Save to indexedDB
+        await storeImageData(imageData, true); // true for production mode
+        console.log("Successfully stored images in IndexedDB");
+      } catch (error) {
+        console.error("Failed to store images in IndexedDB:", error);
+      }
+    }
+    
+    // Continue to next step
     setStep(5); // Go to Music Generation
-  }, []);
+  }, [finalImagePrompts]);
 
   const handleMusicGenerated = useCallback((data: { musicUrl: string; musicPrompt: string }) => {
     setMusicData(data.musicUrl);
@@ -168,11 +194,8 @@ export default function Home() {
           {/* Step 4: Image Generation */}
           {step === 4 && finalImagePrompts && (
              <ImageGeneration
-               // Pass the finalized prompts from state
-               imageSections={finalImagePrompts.map(p => ({
-                 scriptSection: `Time: ${p.timestamp.toFixed(2)}s`, // Use timestamp as context
-                 imagePrompt: p.imagePrompt
-               }))}
+               // Pass the finalized prompts directly
+               promptsToGenerate={finalImagePrompts} // Changed prop name
                onImagesGenerated={handleImagesGenerated}
                onBack={() => setStep(3)} // Go back to Voiceover/Prompt step
              />
