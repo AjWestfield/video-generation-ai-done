@@ -97,7 +97,7 @@ const SoundEffectGeneration: React.FC<SoundEffectGenerationProps> = ({
       if (results.length === 0) {
         toast.error("Failed to generate any sound effects");
       } else if (results.length < prompts.length) {
-        toast.warning(`Generated ${results.length} of ${prompts.length} sound effects`);
+        toast.error(`Generated only ${results.length} of ${prompts.length} sound effects`);
       } else {
         toast.success(`Successfully generated ${results.length} carefully placed sound effects`);
       }

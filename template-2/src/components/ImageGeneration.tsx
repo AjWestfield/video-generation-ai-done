@@ -4,13 +4,15 @@ import Image from "next/image";
 import ImageFocusModal from "./ImageFocusModal"; // Import the modal component
 
 // Define the structure for the prompts we receive (including transcript)
+// Define the structure for the prompts we receive (including transcript and negative prompt)
 interface PromptData {
   timestamp: number;
   imagePrompt: string;
+  negativePrompt: string; // Add negative prompt field
   transcriptSegment: string; // Ensure this is included
 }
 
-// Define structure for modal data
+// Define structure for modal data (doesn't need negative prompt for display)
 interface ModalImageData {
   src: string | null;
   prompt: string;
@@ -69,14 +71,17 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
        return; // Should not happen
     }
     const prompt = currentPromptData.imagePrompt;
+    // Get the negative prompt as well
+    const negativePrompt = currentPromptData.negativePrompt; 
     toast.loading(`Generating image ${indexToGenerate + 1}/${totalImages}...`, { id: `image-gen-${indexToGenerate}` });
 
     try {
-      // Call the single image generation endpoint
+      // Call the single image generation endpoint, now sending negative prompt
       const response = await fetch("/api/replicate/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }), // Send only the prompt string
+        // Send both prompt and negativePrompt
+        body: JSON.stringify({ prompt, negativePrompt }), 
       });
 
       if (!response.ok) {
@@ -223,6 +228,8 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
        return;
     }
     const prompt = currentPromptData.imagePrompt;
+    // Get the negative prompt for regeneration too
+    const negativePrompt = currentPromptData.negativePrompt; 
     const toastId = `image-regen-${index}`;
     toast.loading(`Regenerating image ${index + 1}...`, { id: toastId });
 
@@ -234,10 +241,11 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     });
 
     try {
+      // Send negative prompt during regeneration as well
       const response = await fetch("/api/replicate/generate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, negativePrompt }), 
       });
 
       const data = await response.json(); // Always parse JSON first
@@ -301,6 +309,69 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
   const handleModalRegenerate = (index: number) => {
      setIsModalOpen(false); // Close modal first
      regenerateSingleImage(index); // Trigger single regeneration
+  };
+
+  // --- Modal Navigation Functions ---
+  const showNextModalImage = () => {
+    if (!selectedImageData || editablePrompts.length === 0) return;
+    const currentIndex = selectedImageData.index;
+    const nextIndex = (currentIndex + 1) % editablePrompts.length;
+    handleImageClick(nextIndex); // Reuse existing logic to update selectedImageData
+  };
+
+  const showPreviousModalImage = () => {
+     if (!selectedImageData || editablePrompts.length === 0) return;
+     const currentIndex = selectedImageData.index;
+     const prevIndex = (currentIndex - 1 + editablePrompts.length) % editablePrompts.length;
+     handleImageClick(prevIndex); // Reuse existing logic to update selectedImageData
+  };
+
+  // --- Function to handle downloading prompts ---
+  const handleDownloadPrompts = () => {
+    if (!editablePrompts || editablePrompts.length === 0) {
+      toast.error("No prompts available to download.");
+      return;
+    }
+
+    // Helper to format seconds into MM:SS
+    const formatTime = (seconds: number): string => {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = Math.floor(seconds % 60);
+      return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    };
+
+    // Determine interval (approximate) - assumes prompts are roughly sequential
+    // A more robust way would be to pass the actual interval used during generation
+    const interval = editablePrompts.length > 1 
+      ? editablePrompts[1].timestamp - editablePrompts[0].timestamp 
+      : 4; // Default to 4s if only one prompt or calculation fails
+
+    let fileContent = "";
+    editablePrompts.forEach((promptData, index) => {
+      const startTime = promptData.timestamp;
+      // Estimate end time based on interval or next prompt's start time
+      const endTime = (index < editablePrompts.length - 1) 
+        ? editablePrompts[index + 1].timestamp 
+        : startTime + interval; 
+
+      fileContent += `[TIMESTAMP: ${formatTime(startTime)} - ${formatTime(endTime)}]\n`;
+      fileContent += `TRANSCRIPT: "${promptData.transcriptSegment}"\n`;
+      fileContent += `PROMPT: "${promptData.imagePrompt}"\n`;
+      fileContent += `NEGATIVE_PROMPT: "${promptData.negativePrompt}"\n\n`;
+    });
+
+    // Create blob and trigger download
+    const blob = new Blob([fileContent.trim()], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'image_prompts.txt'; // Filename for the download
+    document.body.appendChild(link); // Required for Firefox
+    link.click();
+    document.body.removeChild(link); // Clean up
+    URL.revokeObjectURL(url); // Free up memory
+
+    toast.success("Prompts downloaded!");
   };
 
 
@@ -380,23 +451,18 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
           return (
             <div
               key={promptData.timestamp} // Use timestamp as key if unique
-              className="aspect-video bg-gray-800 rounded-lg border border-gray-700 overflow-hidden group relative cursor-pointer"
+              // Add 'group' class back
+              className="aspect-video bg-gray-800 rounded-lg border border-gray-700 overflow-hidden relative cursor-pointer group" 
               onClick={() => handleImageClick(index)} // Add onClick handler
             >
-              {/* Tooltip showing timestamp on hover */}
-              <div className="absolute top-1 left-1 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-                 {promptData.timestamp.toFixed(1)}s
-              </div>
-
-              {/* Display generated image, placeholder, or loading state - adjusted container */}
-              {/* Moved content before the glow effect div */}
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-0"> {/* Slightly transparent bg, ensure z-index is lower than glow */}
+              
+              {/* Display generated image, placeholder, or loading state */}
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900"> 
                 {cellContent}
               </div>
 
-              {/* Glowing outline on hover - Placed after content, ensure it's visible */}
-              <div className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100 box-glow-strong pointer-events-none z-10"></div>
-              {/* Added z-10 to ensure it's on top, pointer-events-none prevents blocking clicks */}
+              {/* Add new div for the hover effect */}
+              <div className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100 pointer-events-none image-glow-effect z-10"></div>
 
             </div>
           );
@@ -410,6 +476,14 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
           disabled={loading} // Disable back button while loading
         >
           Back
+        </button>
+        {/* Add Download Prompts Button */}
+        <button
+          onClick={handleDownloadPrompts}
+          className="flex-1 py-2 px-4 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+          disabled={!editablePrompts || editablePrompts.length === 0} // Disable if no prompts
+        >
+          Download Prompts
         </button>
         {/* Removed Regenerate All button */}
         <button
@@ -430,6 +504,9 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         onRegenerate={handleModalRegenerate}
         // Update isLoading prop to use the new state variable for single regeneration
         isLoading={regeneratingIndex === selectedImageData?.index}
+        // Pass navigation handlers
+        onNext={showNextModalImage}
+        onPrevious={showPreviousModalImage}
       />
     </div>
   );

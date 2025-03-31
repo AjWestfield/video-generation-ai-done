@@ -24,7 +24,7 @@ export default function Home() {
   const [scriptData, setScriptData] = useState<{ script: string; title: string }>({ script: "", title: "" });
   const [voiceoverData, setVoiceoverData] = useState<{ audioBase64: string; voiceId: string; script: string } | null>(null);
   // Update state type to include transcriptSegment
-  const [finalImagePrompts, setFinalImagePrompts] = useState<{ timestamp: number; imagePrompt: string; transcriptSegment: string }[] | null>(null);
+  const [finalImagePrompts, setFinalImagePrompts] = useState<{ timestamp: number; imagePrompt: string; negativePrompt: string; transcriptSegment: string }[] | null>(null);
   const [imageData, setImageData] = useState<string[]>([]); // ImageGeneration still expects string[] (base64)
   const [musicData, setMusicData] = useState<string | null>(null);
   const [videoData, setVideoData] = useState<any>(null);
@@ -89,7 +89,7 @@ export default function Home() {
   // Update type to expect transcriptSegment
   const handleVoiceoverAndPromptsGenerated = useCallback((data: {
     voiceover: { audioBase64: string; voiceId: string; script: string };
-    finalPrompts: { timestamp: number; imagePrompt: string; transcriptSegment: string }[];
+    finalPrompts: { timestamp: number; imagePrompt: string; negativePrompt: string; transcriptSegment: string }[];
   }) => {
     setVoiceoverData(data.voiceover);
     setFinalImagePrompts(data.finalPrompts); // Store the complete data including transcriptSegment

@@ -1,5 +1,30 @@
 import { NextResponse } from "next/server";
 
+// Define interface for the *new* expected output structure
+interface EnhancedImagePromptItem {
+  timestamp: number; // Start time in seconds
+  prompt: string; // The main visual prompt
+  negativePrompt: string; // Combined negative prompts
+  transcriptSegment: string; // The corresponding text
+}
+
+// Define Character Profiles (Hardcoded for now)
+const character_profiles: { [key: string]: any } = {
+    "CP-01": {
+        "name": "Dr. Smith", // Added name for clarity if needed
+        "age": "28",
+        "height": "5'9\"",
+        "build": "athletic slim",
+        "hair": "dark brown wavy shoulder-length",
+        "eyes": "hazel almond-shaped",
+        "marks": "small mole on left cheekbone",
+        "palette": ["navy", "charcoal", "cream"], // Use array for easier joining
+        "accessories": ["silver wristwatch", "leather bracelet"] // Use array
+    },
+    // Add more profiles here as needed, e.g., CP-02, CP-03...
+};
+
+
 export async function POST(request: Request) {
   if (!process.env.OPENROUTER_API_KEY) {
     throw new Error(
@@ -7,28 +32,31 @@ export async function POST(request: Request) {
     );
   }
 
-  const { script, audioDuration, interval = 4 } = await request.json();
+  // Use fixed 4-second interval
+  const { script, audioDuration } = await request.json();
+  const interval = 4; 
 
   try {
-    // Calculate how many images we need based on the audio duration and interval
-    // Allow for a much higher number of images
-    const maxImages = 1000; // Previously limited to 30 images maximum
-    const calculatedImages = Math.max(1, Math.ceil(audioDuration / interval));
-    const numImages = Math.min(calculatedImages, maxImages);
+    // Calculate how many images we need based on the audio duration and FIXED interval
+    const maxImages = 1000; 
+    const numImages = Math.max(1, Math.ceil(audioDuration / interval)); 
+    // No need to cap numImages here, let it generate for the full duration
     
-    // If we had to limit the images, adjust the interval to spread them evenly
-    const actualInterval = numImages < calculatedImages ? audioDuration / numImages : interval;
+    // Remove actualInterval calculation
     
-    // Generate timestamps for each image
+    // Generate timestamps for each image using fixed 4s interval
     const timestamps = Array.from({ length: numImages }, (_, i) => {
+      const startTime = i * interval; // Strictly i * 4
+      const endTime = startTime + interval; // Strictly start + 4
       return {
-        startTime: i * actualInterval,
-        endTime: Math.min((i + 1) * actualInterval, audioDuration),
-        formattedTime: formatTimestamp(i * actualInterval) + "-" + formatTimestamp(Math.min((i + 1) * actualInterval, audioDuration))
+        startTime: startTime,
+        endTime: endTime, // Note: endTime might exceed audioDuration, formatTimestamp handles display
+        // Use the new HH:MM:SS formatTimestamp function
+        formattedTime: formatTimestamp(startTime) + "-" + formatTimestamp(endTime) 
       };
     });
 
-    console.log(`Generating ${numImages} image prompts at intervals of approximately ${actualInterval.toFixed(2)} seconds`);
+    console.log(`Generating ${numImages} image prompts at strict 4-second intervals.`);
 
     // Implement retry mechanism for API calls
     const maxRetries = 3;
@@ -56,44 +84,53 @@ export async function POST(request: Request) {
             messages: [
               {
                 role: "system",
-                content: `You are a specialized AI Image Prompt Generator that creates detailed, timestamped prompts for voice-synchronized visuals. Your task is to analyze the provided script/voiceover content thoroughly and divide it into ${numImages} segments of approximately ${actualInterval.toFixed(2)} seconds each.
+                // System Prompt updated for Character Consistency Protocol & HH:MM:SS format
+                content: `You are an Advanced Visual Storyboard Generator specialized in creating diverse, contextually appropriate image prompts from voiceover scripts, with a strong focus on character consistency. Your task is to:
 
-For each segment, you'll generate a highly detailed photorealistic image prompt that precisely matches what is being discussed at that exact moment in the script.
+1.  FIRST: Carefully analyze the provided transcript/audio and segment it into ${numImages} chunks based on the provided timestamps (each representing exactly 4 seconds).
+2.  SECOND: For each segment, identify the distinct core concept being communicated and any characters involved.
+3.  THIRD: Generate a unique, detailed photorealistic image prompt for each segment, adhering strictly to the output format below.
 
-Follow these specific guidelines:
-- ALWAYS include the main characters mentioned in the script (e.g., Superman, Clark Kent, Lois Lane, etc.) in EVERY prompt when they are relevant to that scene
-- For first-person perspective stories, create prompts that show what the narrator would be seeing - show their surroundings, not the narrator themselves unless it's a reflection
-- For Superman stories specifically, include his iconic imagery (red cape, blue suit, S symbol) and powers (flight, strength, heat vision) when relevant
-- Create prompts that capture the essence of what's being spoken about at each timestamp
-- Ensure narrative continuity across images - the story should flow coherently from one image to the next
-- Ensure prompts are extremely detailed and descriptive (minimum 30-50 words each)
-- Focus exclusively on photorealistic imagery - specify lighting, angle, composition, mood, and environment
-- NEVER include instructions that would generate text, words, numbers, or labels within the images
-- Include specific artistic direction such as "shallow depth of field," "golden hour lighting," or "aerial perspective" when appropriate
-- Maintain narrative continuity between sequential images
-- Each prompt MUST begin with "photo realistic"
-- Always specify "16:9 aspect ratio, landscape orientation" to ensure proper formatting
-- Ensure all prompts collectively cover the entire script narrative from beginning to end
-- Avoid abstract concepts that don't translate well visually
-- Make sure the final prompt reaches the conclusion of the story/script
+CHARACTER CONSISTENCY RULES:
+1.  Reference Character Profiles: Use provided profiles (like CP-01) when generating prompts involving those characters.
+2.  Maintain Immutable Traits: Ensure key traits (age, eye color, hair color/texture, distinctive marks) remain identical across all scenes for a character.
+3.  Vary Mutable Traits: Change expressions, poses, actions, and specific clothing items (within the character's palette) to match the scene's context and ensure visual diversity.
+4.  Lighting Consistency: Maintain consistent lighting temperature and direction across sequential scenes unless a narrative change justifies alteration.
+5.  Negative Prompts: Include specific negative prompts to prevent character inconsistencies.
 
-Your response MUST be a valid JSON object with exactly this structure:
-{"imagePrompts": [{"timestamp": number, "prompt": "photo realistic [detailed description]"}]}
+OUTPUT STRUCTURE (Strictly follow this multi-line format for EACH segment, using HH:MM:SS):
 
-The timestamp value represents the number of seconds into the voiceover when this image should appear.
-IMPORTANT: Keep your total output under 100KB to avoid truncation issues.`
+[TIMESTAMP: HH:MM:SS-HH:MM:SS]
+CONTENT: "Transcript text for this segment"
+CHARACTER PROFILE: [Profile ID (e.g., CP-01) if character present, otherwise "None"] | [Key immutable traits for consistency check, e.g., Age: 28 | Eyes: hazel almond-shaped | Hair: dark brown wavy]
+SCENE SPECIFICS: [Describe current action, facial expression, and specific clothing items being worn from palette]
+SCENE TYPE: [Establish a specific scene type that differs from adjacent segments, e.g., Establishing wide shot, Close-up detail shot, Outdoor action medium shot]
+VISUAL PROMPT: [Generate 75-100 word detailed photorealistic description. Start with 'photo realistic'. Place character descriptors before scene descriptions. Reference profile ID if applicable. Include environment, lighting, perspective, mood, and ensure variety from previous scenes. End with '16:9 aspect ratio, landscape orientation'.]
+NEGATIVE PROMPT: [10-15 specific elements to exclude, tailored to this scene type AND character consistency. Include base negatives implicitly.]
+
+BASE NEGATIVE PROMPTS (Apply internally, DO NOT repeat in the NEGATIVE PROMPT field): low quality, bad anatomy, poorly drawn face, distorted facial features, blurry, pixelated, grainy, jpeg artifacts, watermark, text, unrealistic proportions, oversaturated colors, animation style, cartoon, drawing, illustration, painting, sketch, 3d render, artificial lighting, unnatural shadows.
+
+CHARACTER NEGATIVE PROMPTS (Add relevant ones to the NEGATIVE PROMPT field): inconsistent facial features, mismatched eye color, disproportioned limbs, changing hairstyle mid-sequence, clothing color inconsistency, unnatural posture shifts, floating accessories.
+
+SCENE-SPECIFIC NEGATIVE PROMPT EXAMPLES (Add 2-3 relevant ones to the NEGATIVE PROMPT field):
+- Indoor scenes: "harsh shadows, cluttered background, uneven lighting"
+- Outdoor scenes: "overexposed sky, unnatural colors, flat landscape"
+- People: "extra limbs, fused fingers, asymmetrical features, unnatural pose"
+
+Ensure you generate a block for each of the ${numImages} segments requested in the user message.`
               },
               {
                 role: "user",
+                // Updated user prompt to reflect HH:MM:SS format request
                 content: `Script: ${script.substring(0, 5000)}
                 
 Audio duration: ${audioDuration} seconds
 
-This script is about Superman from a first-person perspective. I need ${numImages} highly detailed, photorealistic image prompts for these segments:
-${timestamps.slice(0, 15).map(t => `- [${t.formattedTime}]: (${Math.floor(t.startTime)} seconds into the audio)`).join('\n')}
+This script is about Superman from a first-person perspective. I need ${numImages} highly detailed, photorealistic image prompts for these segments (using HH:MM:SS format):
+${timestamps.slice(0, 15).map(t => `- [${t.formattedTime}]: (Starts at ${t.startTime} seconds)`).join('\n')}
 ${numImages > 15 ? `...and ${numImages - 15} more segments` : ''}
 
-Create prompts that precisely match what would be spoken at each timestamp in the script, with extensive visual detail (lighting, composition, emotion, setting, etc.). Remember to include Superman's iconic imagery in every relevant scene and maintain first-person perspective where appropriate. Keep visual continuity with adjacent segments.`
+Create prompts that precisely match what would be spoken at each timestamp in the script, with extensive visual detail (lighting, composition, emotion, setting, etc.). Remember to include Superman's iconic imagery in every relevant scene and maintain first-person perspective where appropriate. Keep visual continuity with adjacent segments. Ensure the output format uses HH:MM:SS for timestamps.`
               },
             ],
             max_tokens: 8000,
@@ -115,7 +152,7 @@ Create prompts that precisely match what would be spoken at each timestamp in th
         responseData = data;
         break;
         
-      } catch (error) {
+      } catch (error: any) { // Explicitly type error as any or Error
         retryCount++;
         console.error(`Attempt ${retryCount} failed:`, error);
         
@@ -144,116 +181,88 @@ Create prompts that precisely match what would be spoken at each timestamp in th
     const content = data.choices[0].message.content;
     console.log("Raw model response length:", content.length);
     console.log("Raw model response (truncated):", content.substring(0, 500) + "...");
-    
-    // Handle JSON parsing more robustly
-    let parsedContent;
-    try {
-      // Try direct parsing first
-      try {
-        parsedContent = JSON.parse(content);
-      } catch (initialParseError) {
-        // Look for JSON content in the response - find anything between curly braces
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        
-        if (!jsonMatch) {
-          throw new Error("Could not extract JSON from model response");
+
+    // --- Rewritten Parsing Logic for Character Consistency Protocol ---
+    const baseNegativePrompt = "low quality, bad anatomy, poorly drawn face, distorted facial features, blurry, pixelated, grainy, jpeg artifacts, watermark, text, unrealistic proportions, oversaturated colors, animation style, cartoon, drawing, illustration, painting, sketch, 3d render, artificial lighting, unnatural shadows";
+    const characterNegativePrompts = "inconsistent facial features, mismatched eye color, disproportioned limbs, changing hairstyle mid-sequence, clothing color inconsistency, unnatural posture shifts, floating accessories"; // Base character negatives
+    const imagePrompts: EnhancedImagePromptItem[] = [];
+    // Updated Regex to capture HH:MM:SS format
+    const segmentRegex = /\[TIMESTAMP: (\d{2}:\d{2}:\d{2}-\d{2}:\d{2}:\d{2})\]\s*CONTENT: "([\s\S]*?)"\s*CHARACTER PROFILE: ([\s\S]*?)\s*SCENE SPECIFICS: ([\s\S]*?)\s*SCENE TYPE: ([\s\S]*?)\s*VISUAL PROMPT: ([\s\S]*?)\s*NEGATIVE PROMPT: ([\s\S]*?)(?=\n\[TIMESTAMP:|\n*$)/g;
+
+    let match;
+    while ((match = segmentRegex.exec(content)) !== null) {
+        try {
+            const timestampStr = match[1]; // HH:MM:SS-HH:MM:SS
+            const transcriptSegment = match[2].trim();
+            // const characterProfileInfo = match[3].trim(); 
+            // const sceneSpecifics = match[4].trim(); 
+            // const sceneType = match[5].trim(); 
+            let visualPrompt = match[6].trim();
+            let sceneNegativePrompt = match[7].trim();
+
+            // Extract start time in seconds from HH:MM:SS
+            const startTimeStr = timestampStr.split('-')[0]; // HH:MM:SS
+            const [hours, minutes, seconds] = startTimeStr.split(':').map(Number);
+            const timestampSeconds = hours * 3600 + minutes * 60 + seconds;
+
+            // --- Prompt Cleaning ---
+            // Ensure prompt starts with "photo realistic"
+            if (!visualPrompt.startsWith("photo realistic")) {
+                visualPrompt = `photo realistic ${visualPrompt}`;
+            }
+            // Ensure prompt ends with aspect ratio (handle potential trailing commas/periods)
+            visualPrompt = visualPrompt.replace(/[,.]?$/, ''); // Remove trailing punctuation if any
+            if (!visualPrompt.includes("16:9 aspect ratio")) {
+                visualPrompt = `${visualPrompt}, 16:9 aspect ratio, landscape orientation`;
+            }
+
+            // --- Combine Negative Prompts ---
+            const combinedNegativePrompt = `${baseNegativePrompt}, ${characterNegativePrompts}, ${sceneNegativePrompt}`;
+
+            imagePrompts.push({
+                timestamp: timestampSeconds,
+                prompt: visualPrompt,
+                negativePrompt: combinedNegativePrompt,
+                transcriptSegment: transcriptSegment,
+            });
+        } catch (parseError) {
+            console.error("Error parsing individual segment:", parseError, match[0].substring(0, 150) + "...");
         }
-        
-        let jsonContent = jsonMatch[0];
-        
-        // Remove any backticks and "json" prefix that might be in the response
-        jsonContent = jsonContent.replace(/```json|```/g, "").trim();
-        
-        // Handle truncated JSON by adding missing closing brackets
-        if (!jsonContent.endsWith("}")) {
-          // Find the last complete image prompt object
-          const lastCompleteObjectMatch = jsonContent.match(/.*"prompt":.*?"[^"]*".*?\}/g);
-          if (lastCompleteObjectMatch) {
-            // Extract up to the last complete object
-            const lastCompleteObject = lastCompleteObjectMatch[lastCompleteObjectMatch.length - 1];
-            const objectIndex = jsonContent.lastIndexOf(lastCompleteObject) + lastCompleteObject.length;
-            jsonContent = jsonContent.substring(0, objectIndex) + "]}";
-          } else {
-            // If we can't find any complete objects, try a simple fix
-            jsonContent += "]}";
-          }
-        }
-        
-        parsedContent = JSON.parse(jsonContent);
-      }
-      
-      // Validate that the response has required fields
-      if (!parsedContent.imagePrompts || !Array.isArray(parsedContent.imagePrompts)) {
-        throw new Error("Missing imagePrompts field in JSON response");
-      }
-      
-      // Ensure all prompts begin with "photo realistic"
-      parsedContent.imagePrompts = parsedContent.imagePrompts.map(item => ({
-        timestamp: item.timestamp || 0,
-        prompt: item.prompt.startsWith("photo realistic") 
-          ? item.prompt 
-          : `photo realistic ${item.prompt}`
-      }));
-      
-      // Add 16:9 aspect ratio if not present
-      parsedContent.imagePrompts = parsedContent.imagePrompts.map(item => ({
-        timestamp: item.timestamp || 0,
-        prompt: item.prompt.includes("16:9") 
-          ? item.prompt 
-          : `${item.prompt}, 16:9 aspect ratio, landscape orientation`
-      }));
-      
-      // Sort prompts by timestamp
-      parsedContent.imagePrompts.sort((a, b) => a.timestamp - b.timestamp);
-      
-      // Ensure we have prompts for each timestamp
-      const generatedTimestamps = new Set(parsedContent.imagePrompts.map(p => Math.floor(p.timestamp)));
-      
-      // Create missing prompts for timestamps we don't have
-      for (let i = 0; i < numImages; i++) {
-        const timestamp = Math.floor(i * actualInterval);
-        if (!generatedTimestamps.has(timestamp)) {
-          // Extract a relevant portion of the script for this timestamp
-          const scriptSegmentStart = Math.floor((script.length * timestamp) / audioDuration);
-          const scriptSegmentEnd = Math.min(script.length, scriptSegmentStart + 200);
-          const scriptSegment = script.substring(scriptSegmentStart, scriptSegmentEnd).split(' ').slice(0, 20).join(' ');
-          
-          parsedContent.imagePrompts.push({
-            timestamp: timestamp,
-            prompt: `photo realistic detailed scene depicting Superman in first-person perspective: "${scriptSegment}..." with cinematic lighting, rich details, vivid colors of Superman's costume (red cape, blue suit with S symbol), and emotional depth. 16:9 aspect ratio, landscape orientation`
-          });
-        }
-      }
-      
-      // Re-sort and limit to the number of images we need
-      parsedContent.imagePrompts.sort((a, b) => a.timestamp - b.timestamp);
-      if (parsedContent.imagePrompts.length > numImages) {
-        parsedContent.imagePrompts = parsedContent.imagePrompts.slice(0, numImages);
-      }
-      
-    } catch (e) {
-      console.error("JSON parse error:", e);
-      console.error("Attempted to parse:", content.substring(0, 500) + "...");
-      
-      // Emergency fallback - generate a basic structure
-      parsedContent = {
-        imagePrompts: timestamps.map((t, index) => {
-          // Extract a relevant portion of the script for this timestamp
-          const scriptSegmentStart = Math.floor((script.length * t.startTime) / audioDuration);
-          const scriptSegmentEnd = Math.min(script.length, scriptSegmentStart + 200);
-          const scriptSegment = script.substring(scriptSegmentStart, scriptSegmentEnd).split(" ").slice(0, 20).join(" ");
-          
-          return {
-            timestamp: Math.floor(t.startTime),
-            prompt: `photo realistic detailed scene depicting Superman from first-person perspective: "${scriptSegment}...". High-quality cinematographic composition with dramatic lighting showing Superman's iconic red cape and blue suit with S symbol, rich details of Metropolis cityscape, and emotional depth. 16:9 aspect ratio, landscape orientation`
-          };
-        })
-      };
     }
 
-    return NextResponse.json(parsedContent, { status: 200 });
-  } catch (error) {
-    console.error("Error from OpenRouter API:", error);
+    console.log(`Successfully parsed ${imagePrompts.length} prompts using new logic.`);
+
+    // Fallback if parsing failed completely
+    if (imagePrompts.length === 0) {
+       console.warn("Parsing failed, using fallback prompt generation.");
+       // Generate basic prompts as fallback using fixed interval
+       const fallbackPrompts = timestamps.map((t, i) => { // Use index i
+         const startTimeSeconds = i * interval; // Calculate start time based on index and fixed interval
+         const scriptSegmentStart = Math.floor((script.length * startTimeSeconds) / audioDuration);
+         const scriptSegmentEnd = Math.min(script.length, scriptSegmentStart + 200);
+         const scriptSegment = script.substring(scriptSegmentStart, scriptSegmentEnd).split(" ").slice(0, 20).join(" ");
+         const potentialProfileId = script.toLowerCase().includes("dr. smith") ? "CP-01" : null; 
+         const fallbackNegative = potentialProfileId ? `${baseNegativePrompt}, ${characterNegativePrompts}` : baseNegativePrompt;
+
+         return {
+           timestamp: startTimeSeconds, // Use calculated start time
+           prompt: `photo realistic detailed scene for "${scriptSegment}...". ${potentialProfileId ? `Featuring ${character_profiles[potentialProfileId]?.name || potentialProfileId}.` : ''} High-quality cinematographic composition with appropriate lighting and setting. 16:9 aspect ratio, landscape orientation`,
+           negativePrompt: fallbackNegative,
+           transcriptSegment: scriptSegment + "..."
+         };
+       });
+       return NextResponse.json({ imagePrompts: fallbackPrompts }, { status: 200 });
+    }
+
+    // Sort by timestamp before returning
+    imagePrompts.sort((a, b) => a.timestamp - b.timestamp);
+
+    // Return the parsed and structured prompts
+    return NextResponse.json({ imagePrompts }, { status: 200 });
+    // --- End Rewritten Parsing Logic ---
+
+  } catch (error: any) { // Ensure error is typed
+    console.error("Error in generate-timed-image-prompts:", error);
     return NextResponse.json(
       { error: (error as Error).message },
       { status: 500 }
@@ -261,9 +270,11 @@ Create prompts that precisely match what would be spoken at each timestamp in th
   }
 }
 
-// Helper function to format timestamps as MM:SS
-function formatTimestamp(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = Math.floor(seconds % 60);
-  return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-} 
+// Helper function to format timestamps as HH:MM:SS
+function formatTimestamp(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}

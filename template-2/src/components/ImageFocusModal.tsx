@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react'; // Import useEffect
 import Image from 'next/image';
 
 interface ImageFocusModalProps {
@@ -14,6 +14,9 @@ interface ImageFocusModalProps {
   } | null;
   onRegenerate: (index: number) => void;
   isLoading: boolean; // To disable regenerate button while loading
+  // Add navigation props
+  onNext: () => void; 
+  onPrevious: () => void;
 }
 
 const ImageFocusModal: React.FC<ImageFocusModalProps> = ({
@@ -22,7 +25,33 @@ const ImageFocusModal: React.FC<ImageFocusModalProps> = ({
   imageData,
   onRegenerate,
   isLoading,
+  // Accept navigation props
+  onNext,
+  onPrevious,
 }) => {
+
+  // Keyboard navigation effect
+  useEffect(() => {
+    if (!isOpen) return; // Only run when modal is open
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft') {
+        onPrevious();
+      } else if (event.key === 'ArrowRight') {
+        onNext();
+      } else if (event.key === 'Escape') { // Optional: Close on Escape key
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onPrevious, onNext, onClose]); // Add dependencies
+
   if (!isOpen || !imageData) {
     return null;
   }
@@ -57,11 +86,17 @@ const ImageFocusModal: React.FC<ImageFocusModalProps> = ({
         </button>
 
         {/* Adjusted layout for larger image */}
-        <div className="flex flex-col lg:flex-row gap-4 md:gap-6">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6 relative"> {/* Added relative positioning for arrows */}
           {/* Image Display - Increased width */}
-          <div className="w-full lg:w-2/3 aspect-video bg-gray-900 rounded-lg border border-gray-700 overflow-hidden flex items-center justify-center">
+          <div className="w-full lg:w-2/3 aspect-video bg-gray-900 rounded-lg border border-gray-700 overflow-hidden flex items-center justify-center relative"> {/* Added relative positioning */}
+            {/* Navigation Arrows */}
+            <button onClick={onPrevious} className="nav-arrow prev-arrow z-20" aria-label="Previous image">❮</button>
+            <button onClick={onNext} className="nav-arrow next-arrow z-20" aria-label="Next image">❯</button>
+            
+            {/* Image */}
             {imageData.src && !imageData.isNsfwPlaceholder ? (
               <Image
+                key={imageData.src} // Add key to force re-render on src change
                 src={imageData.src}
                 alt={`Focused image for timestamp ${imageData.timestamp.toFixed(1)}s`}
                 width={1280} // Increased size hint

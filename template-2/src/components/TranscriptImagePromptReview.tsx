@@ -7,6 +7,7 @@ interface TranscriptPromptData {
   end: number;
   transcriptSegment: string;
   imagePrompt: string;
+  negativePrompt?: string; // Add optional negativePrompt field
 }
 
 // Define the structure expected from the prompt generation API
@@ -15,6 +16,7 @@ interface PromptResult {
   end: number;
   transcriptSegment: string;
   imagePrompt: string;
+  negativePrompt?: string; // Add optional negativePrompt field
 }
 
 
@@ -24,8 +26,8 @@ interface TranscriptImagePromptReviewProps {
   // - initialPromptsData: TranscriptPromptData[]
   voiceoverAudioUrl: string; // URL for the audio player
   initialPromptsData: TranscriptPromptData[];
-  // Update the prop type to expect transcriptSegment
-  onPromptsFinalized: (finalPrompts: { timestamp: number; imagePrompt: string; transcriptSegment: string }[]) => void;
+  // Update the prop type to expect transcriptSegment and negativePrompt
+  onPromptsFinalized: (finalPrompts: { timestamp: number; imagePrompt: string; negativePrompt: string; transcriptSegment: string }[]) => void;
   onBack: () => void;
 }
 
@@ -144,10 +146,12 @@ const TranscriptImagePromptReview: React.FC<TranscriptImagePromptReviewProps> = 
   };
 
   const handleContinue = () => {
-    // Pass the finalized prompts including the transcript segment
+    // Pass the finalized prompts including the transcript segment and negativePrompt
     onPromptsFinalized(promptsData.map(p => ({ 
       timestamp: p.start, 
       imagePrompt: p.imagePrompt,
+      // Use default negative prompt if not provided
+      negativePrompt: p.negativePrompt || "cartoon, animation, drawing, sketch, illustration, anime, manga, unrealistic, low quality, blurry, text, words, letters, signature, watermark",
       transcriptSegment: p.transcriptSegment // Include transcript segment
     })));
     console.log('Continue clicked');

@@ -15,6 +15,10 @@ This is a web application that generates videos from ideas using AI. It leverage
 
 ## Recent Updates
 
+- **Added Negative Prompt Support**: Improved image generation by adding support for negative prompts throughout the application
+- **Fixed TypeScript Errors**: Resolved type issues across multiple components for better code reliability
+- **Added VS Code Settings**: Created settings to fix Tailwind CSS linting issues
+- **Updated Voice Selection**: Replaced Amelia voice with Yomi for better voice clarity and natural cadence
 - **Upgraded to Flux 1.1 Pro**: Successfully changed image model to black-forest-labs/flux-1.1-pro for higher quality image generation
 - **Added Storytelling Mode**: New narrative generation with five different story structures (Three-Act, Hero's Journey, Problem-Solution, Inverted Pyramid, Circular Narrative)
 - **Enhanced Image Regeneration**: Added ability to regenerate individual images from focus view modal

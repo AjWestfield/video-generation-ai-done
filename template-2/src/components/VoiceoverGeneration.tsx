@@ -8,15 +8,16 @@ interface TranscriptPromptData {
   end: number;
   transcriptSegment: string;
   imagePrompt: string;
+  negativePrompt?: string; // Add optional negativePrompt field
 }
 
 // Update Props: Replace onVoiceoverGenerated with the combined callback
 interface VoiceoverGenerationProps {
   script: string;
-  // Update the finalPrompts type here to include transcriptSegment
+  // Update the finalPrompts type here to include transcriptSegment and negativePrompt
   onVoiceoverAndPromptsGenerated: (data: { 
     voiceover: { audioBase64: string; voiceId: string; script: string };
-    finalPrompts: { timestamp: number; imagePrompt: string; transcriptSegment: string }[]; 
+    finalPrompts: { timestamp: number; imagePrompt: string; negativePrompt: string; transcriptSegment: string }[]; 
   }) => void;
   onBack: () => void;
   autoGenerate?: boolean;
@@ -93,12 +94,12 @@ const VOICES: Voice[] = [
     previewText: "Breathe deeply and let your worries fade away as we begin."
   },
   {
-    id: "ZF6FPAbjXT4488VcRRnw",
-    name: "Amelia",
-    description: "Elegant female voice with a sophisticated tone",
+    id: "x86DtpnPPuq2BpEiKPRy",
+    name: "Yomi",
+    description: "Versatile female voice with natural cadence and clarity",
     category: 'standard',
-    tags: ['elegant', 'sophisticated', 'clear'],
-    previewText: "The decisions we make today will echo through generations."
+    tags: ['versatile', 'clear', 'natural'],
+    previewText: "The world opens up to those who seek knowledge and understanding."
   }
 ];
 
@@ -490,23 +491,19 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
 
   // --- New Handler for Finalized Prompts ---
   // Update the type definition for the finalPrompts parameter here
-  const handlePromptsFinalized = (finalPrompts: { timestamp: number; imagePrompt: string; transcriptSegment: string }[]) => {
+  const handlePromptsFinalized = (finalPrompts: { timestamp: number; imagePrompt: string; negativePrompt: string; transcriptSegment: string }[]) => {
     if (audioData && selectedVoice) {
-      // Call the prop passed from page.tsx with all the data
-      onVoiceoverAndPromptsGenerated({ // Now the types match
+      // Package up the data for the parent component
+      onVoiceoverAndPromptsGenerated({
         voiceover: {
           audioBase64: audioData,
           voiceId: selectedVoice,
-          script: editableScript,
+          script: editableScript || script
         },
-        finalPrompts: finalPrompts,
+        finalPrompts // Pass the finalized prompts with timestamps
       });
     } else {
-      toast.error("Missing voiceover data. Please regenerate voiceover.");
-      // Optionally reset state here
-      setTranscriptPromptsData(null);
-      setAudioData(null);
-      setAudioUrl(null);
+      toast.error("Please generate voiceover audio first");
     }
   };
 

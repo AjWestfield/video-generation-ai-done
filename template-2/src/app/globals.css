@@ -1,3 +1,4 @@
+/* VSCode: Please ignore the @tailwind directives - they are processed by the Tailwind CSS compiler */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -197,4 +198,78 @@ h1, h2, h3, h4, h5, h6 {
 .toggle-label {
   width: 100%;
   transition: all 0.3s;
+}
+
+/* Neon Pulse Animation */
+@keyframes neonPulse {
+  0% {
+    box-shadow: 
+      0 0 5px #0ff,
+      0 0 10px #0ff,
+      0 0 15px #0ff;
+    border-color: #0ff; /* Ensure border color pulses too */
+  }
+  50% {
+    box-shadow: 
+      0 0 7px #0ff,
+      0 0 14px #0ff,
+      0 0 21px #0ff,
+      0 0 28px rgba(0, 255, 255, 0.8);
+    border-color: rgba(0, 255, 255, 0.8); /* Match brighter pulse */
+  }
+  100% {
+    box-shadow: 
+      0 0 5px #0ff,
+      0 0 10px #0ff,
+      0 0 15px #0ff;
+    border-color: #0ff; /* Return to base border color */
+  }
+}
+
+/* Image Glow Effect Class (triggered by group-hover in component) */
+.image-glow-effect {
+  border: 2px solid transparent; /* Start transparent */
+  border-radius: inherit; /* Match parent's border-radius */
+  /* Apply border, shadow, and animation */
+  border-color: #0ff;
+  box-shadow: 
+    0 0 5px #0ff,
+    0 0 10px #0ff,
+    0 0 15px #0ff,
+    0 0 20px #0ff;
+  animation: neonPulse 2s infinite;
+  /* Note: transform: scale(1.02) should be applied on the parent group-hover if desired */
+}
+
+/* Modal Navigation Arrows */
+.nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.4);
+  color: white;
+  border: none;
+  padding: 10px 15px; /* Adjusted padding */
+  font-size: 1.5em; /* Adjusted size */
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  border-radius: 50%; /* Make them circular */
+  line-height: 1; /* Ensure text is centered vertically */
+  width: 40px; /* Fixed width */
+  height: 40px; /* Fixed height */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nav-arrow:hover {
+  background: rgba(0,0,0,0.7);
+}
+
+.prev-arrow {
+  left: 10px; /* Position from left */
+}
+
+.next-arrow {
+  right: 10px; /* Position from right */
 }

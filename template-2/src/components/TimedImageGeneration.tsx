@@ -6,7 +6,7 @@ const toastIds = {
   current: null as string | null
 };
 
-// Centralized toast handler
+// Centralized toast handler that ensures toast.dismiss gets a string | undefined
 const showToast = (message: string, type: 'success' | 'error' | 'loading') => {
   // Dismiss any existing toast first
   if (toastIds.current) {
@@ -23,6 +23,13 @@ const showToast = (message: string, type: 'success' | 'error' | 'loading') => {
   }
   
   return toastIds.current;
+};
+
+// Helper function to safely dismiss a toast with null check
+const safeToastDismiss = (id: string | null) => {
+  if (id) {
+    toast.dismiss(id);
+  }
 };
 
 interface TimedImageGenerationProps {
@@ -155,13 +162,13 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
       
       setImagePrompts(data.imagePrompts);
       setLoading(false);
-      toast.dismiss(loadingToastId);
+      safeToastDismiss(loadingToastId);
       showToast("Image prompts generated successfully", 'success');
     } catch (err) {
       console.error("Error generating prompts:", err);
       setError((err as Error).message);
       setLoading(false);
-      toast.dismiss(loadingToastId);
+      safeToastDismiss(loadingToastId);
       showToast(`Failed to generate image prompts: ${(err as Error).message}`, 'error');
     }
   };
@@ -191,7 +198,7 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
         // Update toast message periodically but not too frequently
         const now = Date.now();
         if (now - lastToastUpdateTime > 1500) { // Update at most every 1.5 seconds
-          toast.dismiss(loadingToastId);
+          safeToastDismiss(loadingToastId);
           showToast(`Generating images: ${i+1}/${promptsToGenerate.length}`, 'loading');
           lastToastUpdateTime = now;
         }
@@ -247,7 +254,7 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
         const finalGeneratedCount = prev.length;
         
         setLoading(false);
-        toast.dismiss(loadingToastId);
+        safeToastDismiss(loadingToastId);
         
         if (finalGeneratedCount === 0) {
           setError("Failed to generate any images. Please try again.");
@@ -267,7 +274,7 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
       console.error("Error generating images:", err);
       setError((err as Error).message);
       setLoading(false);
-      toast.dismiss(loadingToastId);
+      safeToastDismiss(loadingToastId);
       showToast(`Failed to generate images: ${(err as Error).message}`, 'error');
     }
   };
@@ -331,13 +338,13 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
       setGeneratedImages(data.results);
       
       setLoading(false);
-      toast.dismiss(loadingToastId);
+      safeToastDismiss(loadingToastId);
       showToast("All images regenerated successfully", 'success');
     } catch (err) {
       console.error("Error regenerating images:", err);
       setError((err as Error).message);
       setLoading(false);
-      toast.dismiss(loadingToastId);
+      safeToastDismiss(loadingToastId);
       showToast(`Failed to regenerate images: ${(err as Error).message}`, 'error');
     }
   };
@@ -420,13 +427,13 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
       }
       
       setLoading(false);
-      toast.dismiss(loadingToastId);
-      showToast("Image regenerated successfully", 'success');
+      safeToastDismiss(loadingToastId);
+      showToast(`Image at ${formatTimestamp(timestamp)} regenerated!`, 'success');
     } catch (err) {
       console.error("Error regenerating image:", err);
       setError((err as Error).message);
       setLoading(false);
-      toast.dismiss(loadingToastId);
+      safeToastDismiss(loadingToastId);
       showToast(`Failed to regenerate image: ${(err as Error).message}`, 'error');
     }
   };
