@@ -1,0 +1,21 @@
+{
+  "modelId": "kwaivgi/kling-v1.6-standard",
+  "description": "",
+  "latestVersion": "7e324e5fcb9479696f15ab6da262390cddf5a1efa2e11374ef9d1f85fc0f82da",
+  "codeExamples": [
+    "export REPLICATE_API_TOKEN=<paste-your-token-here>",
+    "npm install replicate",
+    "import Replicate from \"replicate\";\nconst replicate = new Replicate();\n\nconst input = {\n    prompt: \"a portrait photo of a woman underwater with flowing hair\",\n    start_image: \"https://replicate.delivery/pbxt/MNRKHnYUu5HjNqEerj2kxWRmUD3xWGaZ0gJmhqVbkra2jCbD/underwater.jpeg\"\n};\n\nconst output = await replicate.run(\"kwaivgi/kling-v1.6-standard\", { input });\n\nimport { writeFile } from \"node:fs/promises\";\nawait writeFile(\"output.mp4\", output);\n//=> output.mp4 written to disk"
+  ],
+  "inputParameters": [],
+  "notes": [
+    "Based on the API documentation and error messages received",
+    "The start_image must be at least 300x300 pixels",
+    "The model requires a prompt describing the desired motion",
+    "Duration can be 5 or 10 seconds",
+    "cfg_scale controls the flexibility in video generation (0-1)",
+    "aspect_ratio can be \"16:9\", \"9:16\", or \"1:1\"",
+    "negative_prompt is optional"
+  ],
+  "rawTextInfo": "    prompt: \"a portrait photo of a woman underwater with flowing hair\",\n    start_image: \"https://replicate.delivery/pbxt/MNRKHnYUu5HjNqEerj2kxWRmUD3xWGaZ0gJmhqVbkra2jCbD/underwater.jpeg\""
+}

@@ -39,8 +39,19 @@ const ensureDirectoryExistence = (filePath: string) => {
   fs.mkdirSync(dirname, { recursive: true });
 };
 
+// Helper function for exponential backoff delay
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export async function POST(req: Request) {
   let filePath: string | null = null; // Declare filePath outside the try block
+  const maxRetries = 3; // Number of retry attempts
+  let attempt = 0;
+
+  // Check for API Key at the start
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("FATAL: OPENAI_API_KEY environment variable is not set.");
+    return NextResponse.json({ error: "OpenAI API key not configured on server." }, { status: 500 });
+  }
 
   try {
     const body = await req.json();
@@ -65,17 +76,64 @@ export async function POST(req: Request) {
     fs.writeFileSync(filePath, new Uint8Array(audio));
 
     // Create a readable stream from the temporary WAV file
-    const readStream = fs.createReadStream(filePath);
+    // Note: Stream needs to be recreated for each retry if read
+    // Alternatively, pass the file path directly if the library supports it,
+    // but openai library expects a stream or fetch-compatible object.
+    // We will recreate the stream inside the loop.
 
-    // Request verbose JSON with segment timestamps and cast result appropriately
-    const data = (await openai.audio.transcriptions.create({
-      file: readStream,
-      model: "whisper-1",
-      response_format: "verbose_json",
-      timestamp_granularities: ["segment"],
-    })) as any as VerboseTranscription; // Cast to any first, then to our interface
+    let data: VerboseTranscription | null = null;
 
-    // Clean up the temporary file
+    while (attempt < maxRetries && !data) {
+      attempt++;
+      console.log(`Attempt ${attempt} to transcribe audio via OpenAI...`);
+      let readStream; // Declare stream inside loop
+      try {
+        // Recreate the stream for each attempt
+        readStream = fs.createReadStream(filePath);
+
+        // Request verbose JSON with segment timestamps and cast result appropriately
+        const transcriptionResult = (await openai.audio.transcriptions.create({
+          file: readStream,
+          model: "whisper-1",
+          response_format: "verbose_json",
+          timestamp_granularities: ["segment"],
+        })) as any as VerboseTranscription; // Cast to any first, then to our interface
+        
+        data = transcriptionResult; // Success! Assign data and break loop.
+
+      } catch (error: any) {
+        console.error(`Transcription attempt ${attempt} failed:`, error.name, error.message);
+        // Close the stream if it was opened and an error occurred
+        if (readStream && !readStream.destroyed) {
+           readStream.destroy();
+        }
+        
+        // Check if it's a potentially retryable error (like connection reset)
+        // OpenAI library might wrap errors, check cause if available
+        const isRetryable = error.name === 'APIConnectionError' || (error.cause && error.cause.code === 'ECONNRESET');
+
+        if (isRetryable && attempt < maxRetries) {
+          const waitTime = Math.pow(2, attempt -1) * 1000; // Exponential backoff (1s, 2s)
+          console.log(`Retrying in ${waitTime / 1000}s...`);
+          await delay(waitTime);
+        } else {
+          // If not retryable or max retries reached, re-throw the error
+          throw error; 
+        }
+      } finally {
+         // Ensure stream is closed if it exists and wasn't destroyed
+         if (readStream && !readStream.destroyed) {
+            readStream.destroy();
+         }
+      }
+    }
+
+    if (!data) {
+       // This should ideally not be reached if throw error works correctly, but as a safeguard
+       throw new Error("Transcription failed after multiple retries.");
+    }
+
+    // Clean up the temporary file (moved outside the loop)
     try {
       fs.unlinkSync(filePath);
     } catch (unlinkError) {

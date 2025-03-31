@@ -5,7 +5,12 @@ interface VideoGenerationProps {
   script: string;
   title: string;
   voiceoverAudio: string;
-  images: { timestamp: number; imageBase64: string }[];
+  images: { 
+    timestamp: number; 
+    imageBase64: string;
+    videoUrl?: string; // Optional URL to animated clip
+  }[];
+  useAnimatedClips?: boolean; // Whether to use video clips instead of static images
   musicAudio: string;
   onVideoGenerated: (videoData: any) => void;
   onBack: () => void;
@@ -16,6 +21,7 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
   title,
   voiceoverAudio,
   images,
+  useAnimatedClips = false,
   musicAudio,
   onVideoGenerated,
   onBack,
@@ -52,6 +58,7 @@ const VideoGeneration: React.FC<VideoGenerationProps> = ({
         },
         body: JSON.stringify({
           timedImages: images,
+          useAnimatedClips: useAnimatedClips, // Pass this flag to the API
           audioBase64: voiceoverAudio,
           backgroundMusic: musicAudio,
           duration: 15, // Default duration in seconds

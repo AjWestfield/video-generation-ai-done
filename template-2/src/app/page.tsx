@@ -8,11 +8,14 @@ import ScriptGeneration from "../components/ScriptGeneration";
 import VoiceoverGeneration from "../components/VoiceoverGeneration";
 import ImageGeneration from "../components/ImageGeneration";
 import MusicGeneration from "../components/MusicGeneration";
+import AnimationControl from "../components/AnimationControl"; // Import AnimationControl
 import VideoGeneration from "../components/VideoGeneration";
 import VideoPreview from "../components/VideoPreview";
 import ProgressStepper from "../components/ProgressStepper";
 import { Toaster } from "react-hot-toast";
-import { storeImageData, retrieveImageData } from "../lib/storage"; // Add retrieveImageData import
+import { storeImageData, retrieveImageData } from "../lib/storage";
+import ImageAnimator from './components/ImageAnimator';
+import VideoModal from "../components/VideoModal";
 
 export default function Home() {
   // Define the workflow states
@@ -28,8 +31,12 @@ export default function Home() {
   const [imageData, setImageData] = useState<string[]>([]); // ImageGeneration still expects string[] (base64)
   const [musicData, setMusicData] = useState<string | null>(null);
   const [videoData, setVideoData] = useState<any>(null);
-  // Add flag to track if images have been generated
-  const [imagesGenerated, setImagesGenerated] = useState<boolean>(false);
+  const [imagesGenerated, setImagesGenerated] = useState<boolean>(false); // Flag to track if images have been generated
+  // New state for animation feature
+  const [generatedImageDataWithPrompts, setGeneratedImageDataWithPrompts] = useState<{ base64: string; prompt: string }[] | null>(null);
+  const [generatedVideos, setGeneratedVideos] = useState<{ url: string; prompt: string; duration: number }[] | null>(null);
+  const [showVideos, setShowVideos] = useState<boolean>(false); // Toggle between images and videos
+  const [selectedVideo, setSelectedVideo] = useState<{ url: string; prompt: string } | null>(null);
 
   // Steps reflecting the new flow integrated into VoiceoverGeneration
   const steps = [
@@ -130,9 +137,29 @@ export default function Home() {
       }
     }
     
+    // Store images with prompts for potential animation
+    if (finalImagePrompts && finalImagePrompts.length === base64ImageArray.length) {
+      const imagesWithPrompts = base64ImageArray.map((base64, index) => ({
+        base64: base64,
+        prompt: finalImagePrompts[index].imagePrompt // Use the corresponding prompt
+      }));
+      setGeneratedImageDataWithPrompts(imagesWithPrompts);
+    } else {
+      console.warn("Mismatch between generated images and prompts count. Cannot prepare for animation.");
+      setGeneratedImageDataWithPrompts(null); // Clear if mismatch
+    }
+
     // Continue to next step
     setStep(5); // Go to Music Generation
   }, [finalImagePrompts]);
+
+  // New callback for AnimationControl
+  const handleAnimationComplete = useCallback((videos: { url: string; prompt: string; duration: number }[]) => {
+    setGeneratedVideos(videos);
+    setShowVideos(true); // Switch view to videos
+    // Optionally move to the next step or stay here
+    // setStep(6); // Example: Move to Video Creation after animation
+  }, []);
 
   const handleMusicGenerated = useCallback((data: { musicUrl: string; musicPrompt: string }) => {
     setMusicData(data.musicUrl);
@@ -157,7 +184,11 @@ export default function Home() {
     setImageData([]);
     setMusicData(null);
     setVideoData(null);
-    setImagesGenerated(false); // Reset image generation flag
+    setImagesGenerated(false);
+    // Reset animation state
+    setGeneratedImageDataWithPrompts(null);
+    setGeneratedVideos(null);
+    setShowVideos(false);
     setStep(1);
   };
 
@@ -187,6 +218,16 @@ export default function Home() {
           },
         }}
       />
+      
+      {/* Video Modal for viewing clips */}
+      {selectedVideo && (
+        <VideoModal 
+          isOpen={!!selectedVideo}
+          onClose={() => setSelectedVideo(null)}
+          videoUrl={selectedVideo.url}
+          prompt={selectedVideo.prompt}
+        />
+      )}
       
       <div className="container max-w-5xl mx-auto space-y-4 md:space-y-6">
         <header className="text-center space-y-2">
@@ -249,15 +290,93 @@ export default function Home() {
              />
            )}
 
-          {/* Step 5: Music Generation */}
-          {step === 5 && scriptData && imageData.length > 0 && (
-            <MusicGeneration
-              script={scriptData.script}
-              // Pass original voiceover base64 if MusicGeneration needs it
-              audioBase64={voiceoverData?.audioBase64}
-              onMusicGenerated={handleMusicGenerated}
-              onBack={() => setStep(4)} // Go back to Image Generation
-            />
+          {/* Step 5: Music Generation & Animation Control */}
+          {step === 5 && scriptData && generatedImageDataWithPrompts && generatedImageDataWithPrompts.length > 0 && (
+            <div className="space-y-4">
+              {/* Storyboard Display (Images or Videos) */}
+              <div>
+                <h3 className="text-lg font-semibold mb-2 text-center text-transparent bg-clip-text bg-gradient-to-r from-[rgba(var(--accent-cyan),1)] to-[rgba(var(--accent-blue),1)]">
+                  {showVideos ? 'Animated Storyboard' : 'Generated Images'}
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 p-2 bg-[rgba(20,25,40,0.3)] rounded-lg border border-[rgba(var(--accent-blue),0.2)]">
+                  {(showVideos && generatedVideos ? generatedVideos : generatedImageDataWithPrompts).map((item, index) => (
+                    <div 
+                      key={index} 
+                      className={`aspect-video bg-[rgba(20,25,40,0.8)] rounded overflow-hidden border border-[rgba(var(--accent-blue),0.3)] relative group
+                                ${showVideos && 'url' in item ? 'cursor-pointer hover:border-[rgba(var(--accent-cyan),0.7)]' : ''}
+                      `}
+                      onClick={showVideos && 'url' in item ? () => setSelectedVideo(item) : undefined}
+                    >
+                      {showVideos && 'url' in item ? (
+                        <div className="w-full h-full">
+                          <video
+                            src={item.url}
+                            preload="metadata"
+                            muted
+                            loop
+                            autoPlay
+                            playsInline
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="w-12 h-12 rounded-full bg-black/70 flex items-center justify-center text-white">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      ) : 'base64' in item ? (
+                        <img
+                          src={item.base64}
+                          alt={`Generated image ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : null}
+                      {/* Tooltip for prompt */}
+                       <div className="absolute bottom-1 left-1 right-1 p-1 bg-black/60 backdrop-blur-sm rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                         <p className="text-white text-[10px] leading-tight line-clamp-2">
+                           {item.prompt}
+                         </p>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+                 {/* Toggle Button */}
+                 {generatedVideos && generatedVideos.length > 0 && (
+                   <div className="text-center mt-3">
+                     <button
+                       onClick={() => setShowVideos(!showVideos)}
+                       className="text-xs px-3 py-1 rounded bg-[rgba(var(--accent-cyan),0.2)] hover:bg-[rgba(var(--accent-cyan),0.4)] text-[rgba(var(--accent-cyan),1)] transition-colors"
+                     >
+                       {showVideos ? 'Show Images' : 'Show Videos'}
+                     </button>
+                   </div>
+                 )}
+              </div>
+
+              {/* Animation Control Button */}
+              {!showVideos && ( // Only show animate button when images are displayed
+                <AnimationControl
+                  images={generatedImageDataWithPrompts}
+                  onAnimate={handleAnimationComplete}
+                  disabled={!generatedImageDataWithPrompts || generatedImageDataWithPrompts.length === 0}
+                />
+              )}
+
+              {/* Music Generation Component */}
+              <MusicGeneration
+                script={scriptData.script}
+                audioBase64={voiceoverData?.audioBase64}
+                onMusicGenerated={handleMusicGenerated}
+                onBack={() => {
+                  setShowVideos(false); // Reset to image view when going back
+                  setGeneratedVideos(null); // Clear videos when going back
+                  setStep(4);
+                }}
+              />
+            </div>
           )}
 
           {/* Step 6: Video Creation */}
@@ -267,12 +386,24 @@ export default function Home() {
               title={scriptData.title}
               // Pass original voiceover base64
               voiceoverAudio={voiceoverData.audioBase64}
-              // Map image data as before
-              images={imageData.map((imgBase64, index) => ({
-                // Use timestamp from finalImagePrompts if available and lengths match, else use index
-                timestamp: finalImagePrompts && finalImagePrompts[index] ? finalImagePrompts[index].timestamp : index,
-                imageBase64: imgBase64
-              }))}
+              // Map image data as before, but prefer animated clips if available
+              images={
+                showVideos && generatedVideos && generatedVideos.length > 0
+                  ? generatedVideos.map((video, index) => ({
+                      timestamp: finalImagePrompts && finalImagePrompts[index] 
+                        ? finalImagePrompts[index].timestamp 
+                        : index,
+                      imageBase64: imageData[index], // Fallback image
+                      videoUrl: video.url // Add video URL for clips
+                    }))
+                  : imageData.map((imgBase64, index) => ({
+                      timestamp: finalImagePrompts && finalImagePrompts[index] 
+                        ? finalImagePrompts[index].timestamp 
+                        : index,
+                      imageBase64: imgBase64
+                    }))
+              }
+              useAnimatedClips={showVideos && generatedVideos && generatedVideos.length > 0}
               musicAudio={musicData} // Pass music URL
               onVideoGenerated={handleVideoGenerated}
               onBack={() => setStep(5)} // Go back to Music Generation

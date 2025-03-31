@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       timedImages, 
       audioBase64, 
       backgroundMusic,
+      useAnimatedClips = false,
       duration = 5
     } = await request.json();
     
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
     // Save audio file
     const audioBuffer = Buffer.from(audioBase64, 'base64');
     const audioPath = path.join(tempDir, "audio.mp3");
-    await fs.writeFile(audioPath, audioBuffer);
+    await fs.writeFile(audioPath, new Uint8Array(audioBuffer.buffer, audioBuffer.byteOffset, audioBuffer.byteLength));
     
     // Save background music file if provided
     let musicPath = null;
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
         }
         const musicBuffer = await musicResponse.arrayBuffer();
         musicPath = path.join(tempDir, "music.mp3");
-        await fs.writeFile(musicPath, Buffer.from(musicBuffer));
+        const musicNodeBuffer = Buffer.from(musicBuffer); await fs.writeFile(musicPath, new Uint8Array(musicNodeBuffer.buffer, musicNodeBuffer.byteOffset, musicNodeBuffer.byteLength));
         console.log("Background music saved to:", musicPath);
         
         // Verify the file exists and has content
@@ -87,23 +88,67 @@ export async function POST(request: Request) {
       }
     }
     
-    // Save images
-    const imagePaths = [];
+    // Save images or video clips
+    const mediaPaths = [];
     let timestamps: number[] = [];
+    let hasAnimatedClips = false;
     
     if (hasTimedImages) {
       // Sort timedImages by timestamp
       const sortedTimedImages = [...timedImages].sort((a, b) => a.timestamp - b.timestamp);
       
-      console.log(`Processing ${sortedTimedImages.length} images for video generation`);
+      console.log(`Processing ${sortedTimedImages.length} media items for video generation`);
+      console.log(`Using animated clips: ${useAnimatedClips}`);
       
       for (let i = 0; i < sortedTimedImages.length; i++) {
         const item = sortedTimedImages[i];
-        const imgData = item.imageBase64.replace(/^data:image\/\w+;base64,/, "");
-        const imgBuffer = Buffer.from(imgData, 'base64');
-        const imgPath = path.join(tempDir, `image_${i.toString().padStart(3, '0')}.jpg`);
-        await fs.writeFile(imgPath, imgBuffer);
-        imagePaths.push(imgPath);
+        
+        // Check if this item has a video URL and we should use animated clips
+        if (useAnimatedClips && item.videoUrl) {
+          try {
+            console.log(`Downloading animated clip for scene ${i+1} from ${item.videoUrl}`);
+            const videoResponse = await fetch(item.videoUrl);
+            if (!videoResponse.ok) {
+              throw new Error(`Failed to download clip: ${videoResponse.statusText}`);
+            }
+            
+            const videoBuffer = await videoResponse.arrayBuffer();
+            const videoPath = path.join(tempDir, `clip_${i.toString().padStart(3, '0')}.mp4`);
+            const videoNodeBuffer = Buffer.from(videoBuffer);
+            await fs.writeFile(videoPath, new Uint8Array(videoNodeBuffer.buffer, videoNodeBuffer.byteOffset, videoNodeBuffer.byteLength));
+            
+            mediaPaths.push({
+              path: videoPath,
+              type: 'video',
+              duration: 4 // Default 4-second clip duration
+            });
+            hasAnimatedClips = true;
+          } catch (error) {
+            console.error(`Error downloading clip ${i+1}:`, error);
+            // Fall back to using the static image
+            const imgData = item.imageBase64.replace(/^data:image\/\w+;base64,/, "");
+            const imgBuffer = Buffer.from(imgData, 'base64');
+            const imgPath = path.join(tempDir, `image_${i.toString().padStart(3, '0')}.jpg`);
+            await fs.writeFile(imgPath, new Uint8Array(imgBuffer.buffer, imgBuffer.byteOffset, imgBuffer.byteLength));
+            
+            mediaPaths.push({
+              path: imgPath,
+              type: 'image'
+            });
+          }
+        } else {
+          // Use static image
+          const imgData = item.imageBase64.replace(/^data:image\/\w+;base64,/, "");
+          const imgBuffer = Buffer.from(imgData, 'base64');
+          const imgPath = path.join(tempDir, `image_${i.toString().padStart(3, '0')}.jpg`);
+          await fs.writeFile(imgPath, new Uint8Array(imgBuffer.buffer, imgBuffer.byteOffset, imgBuffer.byteLength));
+          
+          mediaPaths.push({
+            path: imgPath,
+            type: 'image'
+          });
+        }
+        
         timestamps.push(item.timestamp);
       }
     } else {
@@ -112,8 +157,12 @@ export async function POST(request: Request) {
         const imgData = images[i].replace(/^data:image\/\w+;base64,/, "");
         const imgBuffer = Buffer.from(imgData, 'base64');
         const imgPath = path.join(tempDir, `image_${i.toString().padStart(3, '0')}.jpg`);
-        await fs.writeFile(imgPath, imgBuffer);
-        imagePaths.push(imgPath);
+        await fs.writeFile(imgPath, new Uint8Array(imgBuffer.buffer, imgBuffer.byteOffset, imgBuffer.byteLength));
+        
+        mediaPaths.push({
+          path: imgPath,
+          type: 'image'
+        });
         
         // Calculate estimated timestamp for this image
         const estimatedTimestamp = (i * duration) / images.length;
@@ -121,22 +170,54 @@ export async function POST(request: Request) {
       }
     }
     
-    // Create FFmpeg input file for images with precise durations
+    // Create FFmpeg input file for images/videos with precise durations
     const inputListPath = path.join(tempDir, "input.txt");
     let inputListContent = "";
     
-    // Calculate durations between timestamps
-    for (let i = 0; i < imagePaths.length; i++) {
-      const currentTime = timestamps[i];
-      const nextTime = i < imagePaths.length - 1 ? timestamps[i + 1] : duration;
-      const imageDuration = Math.max(nextTime - currentTime, 0.5); // Minimum 0.5 seconds per image
+    // If we're using animated clips, we need a different approach for the FFmpeg command
+    if (hasAnimatedClips) {
+      console.log("Using animated clips in the final video");
       
-      inputListContent += `file '${imagePaths[i]}'\nduration ${imageDuration}\n`;
-    }
-    
-    // Add the last image again (required by FFmpeg)
-    if (imagePaths.length > 0) {
-      inputListContent += `file '${imagePaths[imagePaths.length - 1]}'\n`;
+      // Create complex filter for concatenating clips with images
+      let filterComplex = "";
+      let inputParts = [];
+      
+      for (let i = 0; i < mediaPaths.length; i++) {
+        const mediaItem = mediaPaths[i];
+        const currentTime = timestamps[i];
+        const nextTime = i < mediaPaths.length - 1 ? timestamps[i + 1] : duration;
+        
+        if (mediaItem.type === 'video') {
+          // For video clips, use clip as is
+          inputParts.push(`file '${mediaItem.path}'`);
+        } else {
+          // For static images, calculate duration
+          const imageDuration = Math.max(nextTime - currentTime, 0.5); // Minimum 0.5 seconds
+          inputParts.push(`file '${mediaItem.path}'`);
+          inputParts.push(`duration ${imageDuration}`);
+        }
+      }
+      
+      // Add the last image again if it's an image (required by FFmpeg)
+      if (mediaPaths.length > 0 && mediaPaths[mediaPaths.length - 1].type === 'image') {
+        inputParts.push(`file '${mediaPaths[mediaPaths.length - 1].path}'`);
+      }
+      
+      inputListContent = inputParts.join('\n');
+    } else {
+      // Calculate durations between timestamps for static images
+      for (let i = 0; i < mediaPaths.length; i++) {
+        const currentTime = timestamps[i];
+        const nextTime = i < mediaPaths.length - 1 ? timestamps[i + 1] : duration;
+        const imageDuration = Math.max(nextTime - currentTime, 0.5); // Minimum 0.5 seconds per image
+        
+        inputListContent += `file '${mediaPaths[i].path}'\nduration ${imageDuration}\n`;
+      }
+      
+      // Add the last image again (required by FFmpeg)
+      if (mediaPaths.length > 0) {
+        inputListContent += `file '${mediaPaths[mediaPaths.length - 1].path}'\n`;
+      }
     }
     
     await fs.writeFile(inputListPath, inputListContent);
@@ -217,7 +298,7 @@ export async function POST(request: Request) {
     console.log("Final audio path for video:", finalAudioPath);
     
     // Create the final video with the mixed audio
-    const ffmpegCommand = `${process.env.FFMPEG_PATH || 'ffmpeg'} -y -f concat -safe 0 -i ${inputListPath} -i ${finalAudioPath} -c:v libx264 -vf "zoompan=z='min(zoom+0.0015,1.05)':d=100:s=1920x1080" -c:a aac -b:a 320k -shortest ${outputVideoPath}`;
+    const ffmpegCommand = `${process.env.FFMPEG_PATH || 'ffmpeg'} -y -f concat -safe 0 -i ${inputListPath} -i ${finalAudioPath} -c:v libx264 -vf "scale=1920:1080" -c:a aac -b:a 320k -shortest ${outputVideoPath}`;
     
     console.log("Executing FFmpeg command:", ffmpegCommand);
     
@@ -249,4 +330,4 @@ export async function POST(request: Request) {
       { status: 500 }
     );
   }
-} 
+}
