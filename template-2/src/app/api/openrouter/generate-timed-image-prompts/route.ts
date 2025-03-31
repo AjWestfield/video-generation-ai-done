@@ -61,7 +61,11 @@ export async function POST(request: Request) {
 For each segment, you'll generate a highly detailed photorealistic image prompt that precisely matches what is being discussed at that exact moment in the script.
 
 Follow these specific guidelines:
+- ALWAYS include the main characters mentioned in the script (e.g., Superman, Clark Kent, Lois Lane, etc.) in EVERY prompt when they are relevant to that scene
+- For first-person perspective stories, create prompts that show what the narrator would be seeing - show their surroundings, not the narrator themselves unless it's a reflection
+- For Superman stories specifically, include his iconic imagery (red cape, blue suit, S symbol) and powers (flight, strength, heat vision) when relevant
 - Create prompts that capture the essence of what's being spoken about at each timestamp
+- Ensure narrative continuity across images - the story should flow coherently from one image to the next
 - Ensure prompts are extremely detailed and descriptive (minimum 30-50 words each)
 - Focus exclusively on photorealistic imagery - specify lighting, angle, composition, mood, and environment
 - NEVER include instructions that would generate text, words, numbers, or labels within the images
@@ -85,11 +89,11 @@ IMPORTANT: Keep your total output under 100KB to avoid truncation issues.`
                 
 Audio duration: ${audioDuration} seconds
 
-I need ${numImages} highly detailed, photorealistic image prompts for these segments:
+This script is about Superman from a first-person perspective. I need ${numImages} highly detailed, photorealistic image prompts for these segments:
 ${timestamps.slice(0, 15).map(t => `- [${t.formattedTime}]: (${Math.floor(t.startTime)} seconds into the audio)`).join('\n')}
 ${numImages > 15 ? `...and ${numImages - 15} more segments` : ''}
 
-Create prompts that precisely match what would be spoken at each timestamp in the script, with extensive visual detail (lighting, composition, emotion, setting, etc.). Keep visual continuity with adjacent segments.`
+Create prompts that precisely match what would be spoken at each timestamp in the script, with extensive visual detail (lighting, composition, emotion, setting, etc.). Remember to include Superman's iconic imagery in every relevant scene and maintain first-person perspective where appropriate. Keep visual continuity with adjacent segments.`
               },
             ],
             max_tokens: 8000,
@@ -216,7 +220,7 @@ Create prompts that precisely match what would be spoken at each timestamp in th
           
           parsedContent.imagePrompts.push({
             timestamp: timestamp,
-            prompt: `photo realistic detailed scene depicting: "${scriptSegment}..." with cinematic lighting, rich details, and emotional depth. 16:9 aspect ratio, landscape orientation`
+            prompt: `photo realistic detailed scene depicting Superman in first-person perspective: "${scriptSegment}..." with cinematic lighting, rich details, vivid colors of Superman's costume (red cape, blue suit with S symbol), and emotional depth. 16:9 aspect ratio, landscape orientation`
           });
         }
       }
@@ -241,7 +245,7 @@ Create prompts that precisely match what would be spoken at each timestamp in th
           
           return {
             timestamp: Math.floor(t.startTime),
-            prompt: `photo realistic detailed scene depicting: "${scriptSegment}...". High-quality cinematographic composition with professional lighting, rich details, and emotional depth. 16:9 aspect ratio, landscape orientation`
+            prompt: `photo realistic detailed scene depicting Superman from first-person perspective: "${scriptSegment}...". High-quality cinematographic composition with dramatic lighting showing Superman's iconic red cape and blue suit with S symbol, rich details of Metropolis cityscape, and emotional depth. 16:9 aspect ratio, landscape orientation`
           };
         })
       };

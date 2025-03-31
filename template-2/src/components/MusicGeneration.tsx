@@ -301,6 +301,23 @@ const MusicGeneration: React.FC<MusicGenerationProps> = ({
     generateMusicPrompt();
   };
 
+  const handleBackClick = () => {
+    // Clear any loading toasts before navigating back
+    if (toastIdRef.current) {
+      toast.dismiss(toastIdRef.current);
+      toastIdRef.current = null;
+    }
+    
+    // Clear any running intervals
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    
+    // Navigate back without losing state
+    onBack();
+  };
+
   return (
     <div className="space-y-6">
       <div className="text-center">
@@ -410,26 +427,28 @@ const MusicGeneration: React.FC<MusicGenerationProps> = ({
         </div>
       )}
 
-      <div className="flex gap-4">
+      <div className="flex justify-between mt-6">
         <button
-          onClick={onBack}
-          className="flex-1 py-2 px-4 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-600 transition-colors"
+          onClick={handleBackClick}
+          className="btn btn-outline"
+          disabled={musicLoading}
         >
-          Back
+          ← Back
         </button>
         
         {musicUrl ? (
           <button
             onClick={handleUseMusic}
-            className="flex-1 py-2 px-4 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+            className="btn btn-primary"
+            disabled={musicLoading}
           >
-            Use This Music
+            Continue with this Music →
           </button>
         ) : (
           <button
             onClick={handleGenerateClick}
-            disabled={promptLoading || musicLoading}
-            className="flex-1 py-2 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-800 disabled:opacity-50"
+            className="btn btn-primary"
+            disabled={musicLoading || promptLoading || !generatedPrompt}
           >
             {musicLoading ? "Generating..." : "Generate Music"}
           </button>

@@ -13,9 +13,10 @@ interface TranscriptPromptData {
 // Update Props: Replace onVoiceoverGenerated with the combined callback
 interface VoiceoverGenerationProps {
   script: string;
-  onVoiceoverAndPromptsGenerated: (data: { // Renamed prop
+  // Update the finalPrompts type here to include transcriptSegment
+  onVoiceoverAndPromptsGenerated: (data: { 
     voiceover: { audioBase64: string; voiceId: string; script: string };
-    finalPrompts: { timestamp: number; imagePrompt: string }[];
+    finalPrompts: { timestamp: number; imagePrompt: string; transcriptSegment: string }[]; 
   }) => void;
   onBack: () => void;
   autoGenerate?: boolean;
@@ -360,16 +361,31 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
       const audio = new Audio(url);
       setAudioElement(audio);
 
+      // Wait for metadata to load to get duration reliably
+      audio.addEventListener('loadedmetadata', async () => {
+        const duration = audio.duration;
+        setAudioDuration(duration); // Update state as well
 
-      audio.addEventListener('loadedmetadata', () => setAudioDuration(audio.duration));
-      // audio.play().catch(e => console.error("Audio playback error:", e)); // REMOVED AUTO-PLAY
-      // setIsPlaying('main'); // Don't set playing state
+        if (duration > 0) {
+          // 2. Trigger transcription and prompt generation ONLY after duration is known
+          await processGeneratedAudio(generatedAudioBase64, duration); // Pass duration
+        } else {
+          // Handle case where duration is still not available (should be rare)
+          throw new Error("Failed to get audio duration even after metadata loaded.");
+        }
+      });
 
-      // 2. Trigger transcription and prompt generation
-      await processGeneratedAudio(generatedAudioBase64);
+      // Handle potential errors during audio loading itself
+      audio.addEventListener('error', (e) => {
+         console.error("Error loading generated audio:", e);
+         throw new Error("Failed to load generated audio file.");
+      });
+
+      // No longer call processGeneratedAudio directly here
+      // await processGeneratedAudio(generatedAudioBase64);
 
     } catch (err) {
-      console.error("Error generating voiceover:", err);
+      console.error("Error in voiceover generation process:", err);
       setError((err as Error).message);
       toast.error(`Voiceover generation failed: ${(err as Error).message}`);
     } finally {
@@ -377,8 +393,9 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
     }
   };
 
-  // --- New Function: Process Audio -> Transcribe -> Generate Prompts ---
-  const processGeneratedAudio = async (audioBase64: string) => {
+  // --- Updated Function: Process Audio -> Transcribe -> Generate Prompts ---
+  // Now accepts duration as a parameter
+  const processGeneratedAudio = async (audioBase64: string, duration: number) => {
     setIsProcessingAudio(true); // Start processing loader
     setProcessingStatusMessage('Transcribing audio...');
     setError(null); // Clear previous errors
@@ -391,16 +408,65 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
       });
       if (!transcribeResponse.ok) { const errorData = await transcribeResponse.json(); throw new Error(`Transcription failed: ${errorData.error || transcribeResponse.statusText}`); }
       const transcriptionData = await transcribeResponse.json();
-      const segments = transcriptionData.segments;
-      if (!segments || segments.length === 0) throw new Error('Transcription returned no segments.');
+      const originalSegments: { start: number; end: number; text: string }[] = transcriptionData.segments;
+      if (!originalSegments || originalSegments.length === 0) throw new Error('Transcription returned no segments.');
 
-      setProcessingStatusMessage('Generating image prompts...');
+      // --- NEW: Process segments into 4-second intervals ---
+      setProcessingStatusMessage('Aligning transcript to 4-second intervals...');
 
-      // 2. Call Prompt Generation API
+      // Remove the unreliable fallback duration check - use the passed 'duration'
+      // if (!audioDuration || audioDuration <= 0) { ... }
+
+      if (!duration || duration <= 0) {
+         // This check should ideally not fail now, but keep as safeguard
+         throw new Error("Audio duration is invalid or zero.");
+      }
+
+      const interval = 4; // 4 seconds
+      const fourSecondSegments: { start: number; end: number; text: string }[] = [];
+      // Use the passed 'duration' for the loop boundary
+      for (let currentTime = 0; currentTime < duration; currentTime += interval) {
+        const intervalStart = currentTime;
+        const intervalEnd = Math.min(currentTime + interval, duration); // Use passed duration
+        let intervalText = "";
+
+        // Find text from original segments that falls within this interval
+        originalSegments.forEach(seg => {
+          // Calculate overlap duration
+          const overlapStart = Math.max(intervalStart, seg.start);
+          const overlapEnd = Math.min(intervalEnd, seg.end);
+          const overlapDuration = Math.max(0, overlapEnd - overlapStart);
+
+          // Include segment text if it overlaps significantly (e.g., > 0.1 seconds)
+          if (overlapDuration > 0.1) {
+             // Simple concatenation for now, could be improved
+             intervalText += seg.text.trim() + " ";
+          }
+        });
+
+        // Only add if there's text for the interval
+        if (intervalText.trim()) {
+          fourSecondSegments.push({
+            start: intervalStart,
+            end: intervalEnd,
+            text: intervalText.trim(),
+          });
+        }
+      }
+
+      if (fourSecondSegments.length === 0) {
+         throw new Error("No text segments could be aligned to 4-second intervals.");
+      }
+      // --- END NEW ---
+
+      setProcessingStatusMessage('Generating image prompts for 4s intervals...');
+
+      // 2. Call Prompt Generation API with the NEW 4-second segments
       const promptGenResponse = await fetch('/api/openrouter/generate-prompts-from-transcript', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ segments }),
+        // Send the processed 4-second segments instead of original ones
+        body: JSON.stringify({ segments: fourSecondSegments }),
       });
       if (!promptGenResponse.ok) { const errorData = await promptGenResponse.json(); throw new Error(`Prompt generation failed: ${errorData.error || promptGenResponse.statusText}`); }
       const promptGenData = await promptGenResponse.json();
@@ -423,10 +489,11 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
   };
 
   // --- New Handler for Finalized Prompts ---
-  const handlePromptsFinalized = (finalPrompts: { timestamp: number; imagePrompt: string }[]) => {
+  // Update the type definition for the finalPrompts parameter here
+  const handlePromptsFinalized = (finalPrompts: { timestamp: number; imagePrompt: string; transcriptSegment: string }[]) => {
     if (audioData && selectedVoice) {
       // Call the prop passed from page.tsx with all the data
-      onVoiceoverAndPromptsGenerated({
+      onVoiceoverAndPromptsGenerated({ // Now the types match
         voiceover: {
           audioBase64: audioData,
           voiceId: selectedVoice,

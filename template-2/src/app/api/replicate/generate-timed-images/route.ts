@@ -137,7 +137,15 @@ export async function POST(request: Request) {
 
 // Function to sanitize prompts to avoid NSFW detection
 function sanitizePromptForNSFW(prompt: string): string {
-  // Replace words that might trigger NSFW filters
+  // Don't over-sanitize Superman-related content
+  if (prompt.toLowerCase().includes("superman") || prompt.toLowerCase().includes("clark kent")) {
+    // For Superman stories, do minimal sanitization to preserve the iconic imagery
+    return prompt
+      .replace(/\bnaked\b/gi, "clothed")
+      .replace(/\bnudity\b/gi, "modesty");
+  }
+  
+  // Default sanitization for other content
   return prompt
     .replace(/\bnaked\b/gi, "clothed")
     .replace(/\bnudity\b/gi, "modesty")
@@ -150,7 +158,20 @@ function sanitizePromptForNSFW(prompt: string): string {
 
 // Function to create alternative prompts for failed NSFW cases
 function createAlternativePrompt(originalPrompt: string): string {
-  // Create a more abstract/symbolic alternative that avoids NSFW issues
+  // Handle Superman-specific content
+  if (originalPrompt.toLowerCase().includes("superman")) {
+    return "photo realistic Superman soaring through bright blue skies above Metropolis city. His iconic red cape billows dramatically behind him, blue suit with S symbol gleaming in sunlight. Captured from a heroic low angle with dramatic clouds and building tops visible below. 16:9 aspect ratio, landscape orientation";
+  }
+  
+  if (originalPrompt.toLowerCase().includes("clark kent")) {
+    return "photo realistic Clark Kent in the Daily Planet newsroom, wearing glasses and a professional suit. Bright office lighting illuminates the busy newspaper environment with desks, computers, and staff in the background. Captured with shallow depth of field focusing on his determined expression. 16:9 aspect ratio, landscape orientation";
+  }
+  
+  if (originalPrompt.toLowerCase().includes("first person") || originalPrompt.toLowerCase().includes("first-person")) {
+    return "photo realistic First-person perspective looking out at a spectacular cityscape of Metropolis. Tall skyscrapers reflecting golden sunlight, people moving in the streets below, and clouds drifting between buildings. Captured with cinematic lighting and dramatic colors. 16:9 aspect ratio, landscape orientation";
+  }
+  
+  // Existing alternatives
   if (originalPrompt.toLowerCase().includes("adam and eve")) {
     return "photo realistic A man and woman in a garden paradise, dressed in simple cloth garments. Golden light filters through lush trees, creating a serene atmosphere. The scene is captured with cinematic lighting and rich details. 16:9 aspect ratio, landscape orientation";
   }

@@ -24,7 +24,8 @@ interface TranscriptImagePromptReviewProps {
   // - initialPromptsData: TranscriptPromptData[]
   voiceoverAudioUrl: string; // URL for the audio player
   initialPromptsData: TranscriptPromptData[];
-  onPromptsFinalized: (finalPrompts: { timestamp: number; imagePrompt: string }[]) => void;
+  // Update the prop type to expect transcriptSegment
+  onPromptsFinalized: (finalPrompts: { timestamp: number; imagePrompt: string; transcriptSegment: string }[]) => void;
   onBack: () => void;
 }
 
@@ -143,8 +144,12 @@ const TranscriptImagePromptReview: React.FC<TranscriptImagePromptReviewProps> = 
   };
 
   const handleContinue = () => {
-    // Pass the finalized prompts (mapping timestamp to start time for consistency)
-    onPromptsFinalized(promptsData.map(p => ({ timestamp: p.start, imagePrompt: p.imagePrompt })));
+    // Pass the finalized prompts including the transcript segment
+    onPromptsFinalized(promptsData.map(p => ({ 
+      timestamp: p.start, 
+      imagePrompt: p.imagePrompt,
+      transcriptSegment: p.transcriptSegment // Include transcript segment
+    })));
     console.log('Continue clicked');
   };
 

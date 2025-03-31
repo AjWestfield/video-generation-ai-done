@@ -46,10 +46,24 @@ export async function POST(req: Request) {
     let attempt = 0;
     const maxAttempts = 3;
 
-    for (const segment of segments) {
-      const systemPrompt = `You are an expert image prompt generator. Given a transcript segment from a voiceover, create a concise, visually descriptive image prompt suitable for a text-to-image model like Flux Pro. The prompt should accurately reflect the content and mood of the transcript segment for the given timestamp. Focus on visual elements, actions, setting, and atmosphere. Do not include timestamps or segment text in the output. Output only the generated image prompt itself, nothing else.`;
+    // Keep track of the previous prompt to help maintain context
+    let previousPromptContext = "The video starts."; 
 
-      const userPrompt = `Transcript segment (Time: ${segment.start.toFixed(2)}s - ${segment.end.toFixed(2)}s):\n"${segment.text}"\n\nGenerate the image prompt:`;
+    for (const segment of segments) {
+      // Further refined system prompt emphasizing characters and context
+      const systemPrompt = `You are an expert image prompt generator creating prompts for a continuous video storyboard. Your goal is to create prompts that are visually descriptive, maintain narrative consistency, and focus on the characters mentioned. 
+Instructions:
+1.  Analyze the 'Current transcript segment' and the 'Previous context'.
+2.  Identify key characters, actions, settings, and mood.
+3.  If characters are mentioned or implied, make them the central focus of the prompt.
+4.  Maintain visual consistency with the 'Previous context'.
+5.  The prompt MUST start exactly with "photo realistic ".
+6.  Keep the prompt concise and focused on visual details.
+7.  Do NOT include timestamps or the original transcript text in your output.
+8.  Output only the generated image prompt itself.`;
+
+      // Include previous context in the user prompt
+      const userPrompt = `Previous context: "${previousPromptContext}"\n\nCurrent transcript segment (Time: ${segment.start.toFixed(2)}s - ${segment.end.toFixed(2)}s):\n"${segment.text}"\n\nGenerate the image prompt (must start with 'photo realistic ' and focus on characters if present):`;
 
       let promptGenerated = false;
       attempt = 0; // Reset attempts for each segment
@@ -74,19 +88,24 @@ export async function POST(req: Request) {
             throw new Error("OpenRouter returned an empty prompt.");
           }
 
-          // Basic cleanup (remove potential quotes or markdown)
-          const cleanedImagePrompt = imagePrompt.replace(/^["'`]+|["'`]+$/g, '');
+          // Basic cleanup (remove potential quotes or markdown) and ensure prefix
+          let finalImagePrompt = imagePrompt.replace(/^["'`]+|["'`]+$/g, '').trim();
+          if (!finalImagePrompt.toLowerCase().startsWith("photo realistic ")) {
+            finalImagePrompt = "photo realistic " + finalImagePrompt;
+          }
 
           results.push({
             start: segment.start,
             end: segment.end,
-            transcriptSegment: segment.text,
-            imagePrompt: cleanedImagePrompt,
+            transcriptSegment: segment.text, // Keep original segment text for modal
+            imagePrompt: finalImagePrompt,
           });
           promptGenerated = true; // Mark as successful
+          previousPromptContext = `The last scene showed: ${finalImagePrompt}`; // Update context for next iteration
 
         } catch (error: any) {
           console.error(`Error generating prompt for segment ${segment.start.toFixed(2)}s (Attempt ${attempt}):`, error);
+          previousPromptContext = `Error generating prompt for the previous segment. Original text was: ${segment.text}`; // Update context on error
           if (attempt >= maxAttempts) {
             // Add a placeholder or skip if max attempts reached
             results.push({

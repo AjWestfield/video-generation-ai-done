@@ -24,17 +24,22 @@ interface ImageGenerationProps {
   promptsToGenerate: PromptData[]; // Changed prop name and type
   onImagesGenerated: (images: string[]) => void; // Keep this as is for now
   onBack: () => void;
+  skipInitialGeneration?: boolean; // Add optional prop to skip initial generation
+  existingImages?: string[]; // Add optional prop for existing images
 }
 
 const ImageGeneration: React.FC<ImageGenerationProps> = ({
   promptsToGenerate, // Use the new prop name
   onImagesGenerated,
   onBack,
+  skipInitialGeneration = false, // Default to false
+  existingImages = [], // Default to empty array
 }) => {
-  const [loading, setLoading] = useState(false); // Loading state for individual image
-  const [currentImageIndex, setCurrentImageIndex] = useState(0); // Re-add for sequential generation
-  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false); // Loading state for the *initial* sequence
+  const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null); // Loading state for single regeneration
+  const [currentImageIndex, setCurrentImageIndex] = useState(0); // Tracks progress of initial sequence
+  const [generatedImages, setGeneratedImages] = useState<string[]>(existingImages); // Initialize with existing images if available
+  const [error, setError] = useState<string | null>(null); // General error for initial sequence
   // Store prompts with timestamps and transcript for potential editing/display
   const [editablePrompts, setEditablePrompts] = useState<PromptData[]>(promptsToGenerate);
   // State for modal
@@ -122,16 +127,26 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
       setError((err as Error).message);
       toast.error(`Failed to generate image ${indexToGenerate + 1}: ${(err as Error).message}`, { id: `image-gen-${indexToGenerate}` });
       setLoading(false); // Stop loading on error for this sequence
-      // Do not proceed automatically on error
+      // Do not proceed automatically on error for the sequence
     }
   // Add dependencies for sequential logic
-  }, [totalImages, editablePrompts, currentImageIndex]); // Dependencies needed
+  }, [totalImages, editablePrompts]); // Remove currentImageIndex dependency here, it's managed internally
 
   // Trigger the first image generation ONLY on initial mount or when promptsToGenerate fundamentally changes.
   // Use a ref to track if initial generation has started/completed to prevent re-triggering on regenerations.
   const initialGenerationStarted = useRef(false);
   useEffect(() => {
     if (promptsToGenerate.length > 0 && !initialGenerationStarted.current && !loading) {
+      if (skipInitialGeneration && existingImages.length > 0) {
+        console.log("Skipping initial image generation - using cached images");
+        initialGenerationStarted.current = true; // Mark as started
+        // Make sure generatedImages is set to existingImages
+        setGeneratedImages(existingImages);
+        // Set current index to the end (all images are already generated)
+        setCurrentImageIndex(existingImages.length);
+        return;
+      }
+      
       console.log("Starting initial image generation sequence...");
       initialGenerationStarted.current = true; // Mark as started
       setGeneratedImages(Array(promptsToGenerate.length).fill("")); // Initialize array
@@ -140,8 +155,18 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     }
     // Only depend on promptsToGenerate to trigger a full reset/restart if the input prompts change.
     // Do NOT depend on loading, currentImageIndex, or generatedImages here.
-  }, [promptsToGenerate, generateNextImage, loading]); // Keep loading here to prevent starting while another process might be loading
+  }, [promptsToGenerate, generateNextImage, loading, skipInitialGeneration, existingImages]); // Add the new dependencies
 
+  // Add a useEffect to log when cached images are being used
+  useEffect(() => {
+    if (skipInitialGeneration && existingImages.length > 0) {
+      console.log("Using cached images in ImageGeneration component:", {
+        skipInitialGeneration,
+        existingImagesCount: existingImages.length,
+        generatedImagesCount: generatedImages.length
+      });
+    }
+  }, [skipInitialGeneration, existingImages, generatedImages]);
 
   const handleEditPrompt = (index: number, newPrompt: string) => {
     // Prevent editing if generation is in progress for this or subsequent images
@@ -178,9 +203,82 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
      });
      // Set the index and trigger generation for this specific image
      setCurrentImageIndex(index);
-     // Use setTimeout to ensure state update before calling generate
-     setTimeout(() => generateNextImage(index), 0);
+     // Call the new single regeneration function
+     regenerateSingleImage(index);
   };
+
+  // --- New function for regenerating a SINGLE image ---
+  const regenerateSingleImage = async (index: number) => {
+    // Prevent regeneration if initial sequence is running OR another regeneration is active
+    if (loading || regeneratingIndex !== null) {
+      toast.error("Please wait for the current generation to complete.");
+      return;
+    }
+
+    setRegeneratingIndex(index); // Set loading state for this specific image
+    const currentPromptData = editablePrompts[index];
+    if (!currentPromptData) {
+       console.error(`No prompt data found for index ${index}`);
+       setRegeneratingIndex(null);
+       return;
+    }
+    const prompt = currentPromptData.imagePrompt;
+    const toastId = `image-regen-${index}`;
+    toast.loading(`Regenerating image ${index + 1}...`, { id: toastId });
+
+    // Clear previous image data for this index
+    setGeneratedImages((prev) => {
+      const updated = [...prev];
+      updated[index] = ""; // Clear the image string
+      return updated;
+    });
+
+    try {
+      const response = await fetch("/api/replicate/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+
+      const data = await response.json(); // Always parse JSON first
+
+      if (!response.ok) {
+        // Check for NSFW error specifically from the parsed data
+        if (data?.isNsfwError) {
+           console.warn(`NSFW error received during regeneration for prompt at index ${index}.`);
+           toast.error(`NSFW content detected for image ${index + 1}.`, { id: toastId });
+           setGeneratedImages((prev) => {
+             const updated = [...prev];
+             updated[index] = "NSFW_PLACEHOLDER";
+             return updated;
+           });
+        } else {
+          // Throw a generic error if not NSFW
+          throw new Error(data.error || `API Error: ${response.statusText}`);
+        }
+      } else if (!data.imageBase64) {
+        // Handle success case where imageBase64 might be missing (shouldn't happen with current API)
+        throw new Error("Invalid response format from image generation API (missing imageBase64)");
+      } else {
+        // Success case
+        const base64data = data.imageBase64;
+        setGeneratedImages((prev) => {
+          const updated = [...prev];
+          updated[index] = base64data;
+          return updated;
+        });
+        toast.success(`Image ${index + 1} regenerated!`, { id: toastId });
+      }
+
+    } catch (err) {
+      console.error(`Error regenerating image ${index + 1}:`, err);
+      toast.error(`Failed to regenerate image ${index + 1}: ${(err as Error).message}`, { id: toastId });
+      // Optionally clear the image again or leave the placeholder/empty state
+    } finally {
+      setRegeneratingIndex(null); // Clear loading state for this specific image
+    }
+  };
+
 
   // Function to open the modal
   const handleImageClick = (index: number) => {
@@ -199,10 +297,10 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
      setIsModalOpen(true);
   };
 
-  // Function to handle regeneration request from modal
+  // Function to handle regeneration request from modal - Updated to use new function
   const handleModalRegenerate = (index: number) => {
      setIsModalOpen(false); // Close modal first
-     handleRegenerateImage(index); // Trigger regeneration
+     regenerateSingleImage(index); // Trigger single regeneration
   };
 
 
@@ -290,15 +388,16 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
                  {promptData.timestamp.toFixed(1)}s
               </div>
 
-              {/* Glowing outline on hover - Ensure opacity transition works */}
-              <div className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100 box-glow-strong pointer-events-none"></div> 
-              {/* Added pointer-events-none to prevent outline from blocking clicks */}
-
               {/* Display generated image, placeholder, or loading state - adjusted container */}
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+              {/* Moved content before the glow effect div */}
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 z-0"> {/* Slightly transparent bg, ensure z-index is lower than glow */}
                 {cellContent}
               </div>
-              {/* Removed prompt text area and regenerate button from here */}
+
+              {/* Glowing outline on hover - Placed after content, ensure it's visible */}
+              <div className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100 box-glow-strong pointer-events-none z-10"></div>
+              {/* Added z-10 to ensure it's on top, pointer-events-none prevents blocking clicks */}
+
             </div>
           );
         })}
@@ -329,7 +428,8 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
         onClose={() => setIsModalOpen(false)}
         imageData={selectedImageData}
         onRegenerate={handleModalRegenerate}
-        isLoading={loading && currentImageIndex === selectedImageData?.index} // Pass loading state for the specific image
+        // Update isLoading prop to use the new state variable for single regeneration
+        isLoading={regeneratingIndex === selectedImageData?.index}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import VideoIdeaForm from "../components/VideoIdeaForm";
 import ScriptGeneration from "../components/ScriptGeneration";
 // Remove unused imports
@@ -12,7 +12,7 @@ import VideoGeneration from "../components/VideoGeneration";
 import VideoPreview from "../components/VideoPreview";
 import ProgressStepper from "../components/ProgressStepper";
 import { Toaster } from "react-hot-toast";
-import { storeImageData } from "../lib/storage"; // Import our storage utility
+import { storeImageData, retrieveImageData } from "../lib/storage"; // Add retrieveImageData import
 
 export default function Home() {
   // Define the workflow states
@@ -28,6 +28,8 @@ export default function Home() {
   const [imageData, setImageData] = useState<string[]>([]); // ImageGeneration still expects string[] (base64)
   const [musicData, setMusicData] = useState<string | null>(null);
   const [videoData, setVideoData] = useState<any>(null);
+  // Add flag to track if images have been generated
+  const [imagesGenerated, setImagesGenerated] = useState<boolean>(false);
 
   // Steps reflecting the new flow integrated into VoiceoverGeneration
   const steps = [
@@ -43,6 +45,32 @@ export default function Home() {
   const handleNavigate = useCallback((targetStep: number) => {
     setStep(targetStep);
   }, []);
+
+  // Load cached images when navigating back to the image generation step
+  useEffect(() => {
+    const loadCachedImages = async () => {
+      if (step === 4 && finalImagePrompts && finalImagePrompts.length > 0 && !imageData.length && imagesGenerated) {
+        console.log("Loading cached images from IndexedDB...");
+        try {
+          const cachedImages = await retrieveImageData(true); // true for production mode
+          if (cachedImages && cachedImages.length > 0) {
+            // Sort images by timestamp to match prompts order
+            cachedImages.sort((a, b) => a.timestamp - b.timestamp);
+            // Extract base64 strings in order
+            const base64Images = cachedImages.map(img => img.imageBase64);
+            setImageData(base64Images);
+            console.log(`Successfully loaded ${base64Images.length} cached images`);
+          } else {
+            console.log("No cached images found");
+          }
+        } catch (error) {
+          console.error("Failed to load cached images:", error);
+        }
+      }
+    };
+    
+    loadCachedImages();
+  }, [step, finalImagePrompts, imageData.length, imagesGenerated]);
 
   const handleVideoIdeaSubmit = useCallback((idea: string, duration: number, isNarrativeMode: boolean, structure: string) => {
     setVideoIdea(idea);
@@ -72,6 +100,8 @@ export default function Home() {
   const handleImagesGenerated = useCallback(async (base64ImageArray: string[]) => {
     // Store the base64 strings in state as before
     setImageData(base64ImageArray);
+    // Set flag that images have been generated
+    setImagesGenerated(true);
     
     // If the user has over 1000 credits, then we store the images in their account
     // Otherwise we just use IndexedDB for temporary storage
@@ -127,8 +157,20 @@ export default function Home() {
     setImageData([]);
     setMusicData(null);
     setVideoData(null);
+    setImagesGenerated(false); // Reset image generation flag
     setStep(1);
   };
+
+  // Add a useEffect to log when images are being used from cache
+  useEffect(() => {
+    if (step === 4 && finalImagePrompts) {
+      console.log("Rendering Image Generation", {
+        imagesGenerated,
+        imageDataLength: imageData.length,
+        skipGeneration: imagesGenerated && imageData.length > 0
+      });
+    }
+  }, [step, finalImagePrompts, imagesGenerated, imageData.length]);
 
   return (
     <main className="flex min-h-screen flex-col items-center p-2 md:p-6 lg:p-8">
@@ -202,6 +244,8 @@ export default function Home() {
                promptsToGenerate={finalImagePrompts} // Changed prop name
                onImagesGenerated={handleImagesGenerated}
                onBack={() => setStep(3)} // Go back to Voiceover/Prompt step
+               skipInitialGeneration={imagesGenerated && imageData.length > 0} // Skip generation if images already exist
+               existingImages={imagesGenerated ? imageData : []} // Pass existing images if available
              />
            )}
 

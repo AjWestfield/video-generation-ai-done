@@ -289,6 +289,12 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
   const handleRegenerateImages = async () => {
     if (loading) return;
     
+    // If we have a focus image, only regenerate that specific image
+    if (focusImage) {
+      handleRegenerateImage(focusImage.timestamp, focusImage.prompt);
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     const loadingToastId = showToast("Regenerating all images...", 'loading');
@@ -299,18 +305,6 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
         timestamp: p.timestamp,
         prompt: p.prompt
       }));
-      
-      // Filter out any images that might be in the middle of individual regeneration
-      // This ensures we don't interrupt an in-progress single image regeneration
-      if (focusImage) {
-        const filteredPrompts = promptsForRegeneration.filter(p => p.timestamp !== focusImage.timestamp);
-        if (filteredPrompts.length === 0) {
-          // If we're only regenerating the focused image, which is already being done separately
-          toast.dismiss(loadingToastId);
-          setLoading(false);
-          return;
-        }
-      }
       
       const response = await fetch("/api/replicate/generate-timed-images", {
         method: "POST",
@@ -335,17 +329,6 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
       
       // Replace the generated images with the new ones
       setGeneratedImages(data.results);
-      
-      // Optionally update the focus image if it exists
-      if (focusImage) {
-        const updatedFocusImage = data.results.find(img => img.timestamp === focusImage.timestamp);
-        if (updatedFocusImage) {
-          setFocusImage({
-            ...focusImage,
-            imageBase64: updatedFocusImage.imageBase64
-          });
-        }
-      }
       
       setLoading(false);
       toast.dismiss(loadingToastId);
@@ -612,7 +595,7 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
               return (
                 <div key={index} className="group">
                   <div 
-                    className="aspect-video bg-[rgba(20,25,40,0.5)] rounded-md overflow-hidden border border-[rgba(var(--accent-blue),0.3)] hover:border-[rgba(var(--accent-cyan),0.6)] transition-all duration-300 hover:shadow-lg cursor-pointer relative"
+                    className="aspect-video bg-[rgba(20,25,40,0.5)] rounded-md overflow-hidden border border-[rgba(var(--accent-blue),0.3)] hover:border-[rgba(var(--accent-cyan),0.8)] transition-all duration-300 hover:shadow-xl cursor-pointer relative"
                     onClick={() => handleImageClick(image, index)}
                   >
                     <img
@@ -620,8 +603,8 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
                       alt={`Generated image at ${formatTimestamp(image.timestamp)}`}
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
                     />
-                    {/* Add hovering glow effect around the image */}
-                    <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 box-glow-strong rounded"></div>
+                    {/* Enhanced neon glow effect */}
+                    <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-md ring-4 ring-[rgba(var(--accent-cyan),0.8)] shadow-[0_0_15px_5px_rgba(var(--accent-cyan),0.5)]"></div>
                     <div className="absolute bottom-1 left-1 text-[10px] bg-[rgba(0,0,0,0.5)] text-[rgba(var(--accent-cyan),1)] px-1.5 py-0.5 rounded-full backdrop-blur-sm font-mono">
                       {formatTimestamp(image.timestamp)}
                     </div>
