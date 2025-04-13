@@ -120,7 +120,7 @@ export async function POST(request: Request) {
             mediaPaths.push({
               path: videoPath,
               type: 'video',
-              duration: 4 // Default 4-second clip duration
+              duration: 5 // Changed from 4-second to 5-second clip duration
             });
             hasAnimatedClips = true;
           } catch (error) {
@@ -198,8 +198,9 @@ export async function POST(request: Request) {
         }
       }
       
-      // Add the last image again if it's an image (required by FFmpeg)
-      if (mediaPaths.length > 0 && mediaPaths[mediaPaths.length - 1].type === 'image') {
+      // Add the last file path again (required by FFmpeg for duration calculation)
+      // This needs to happen regardless of whether the last item is an image or video.
+      if (mediaPaths.length > 0) {
         inputParts.push(`file '${mediaPaths[mediaPaths.length - 1].path}'`);
       }
       

@@ -208,7 +208,7 @@ export default function Home() {
       <Toaster 
         position="bottom-right" 
         toastOptions={{
-          duration: 4000,
+          duration: 5000,
           style: {
             background: 'rgba(20, 25, 45, 0.85)',
             color: '#fff',

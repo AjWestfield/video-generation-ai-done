@@ -11,7 +11,7 @@ interface MusicGenerationProps {
 // Configure toast position globally
 const toastOptions = {
   position: "bottom-right" as const,
-  duration: 4000
+  duration: 5000
 };
 
 const MusicGeneration: React.FC<MusicGenerationProps> = ({

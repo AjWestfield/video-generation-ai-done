@@ -32,9 +32,9 @@ export async function POST(request: Request) {
     );
   }
 
-  // Use fixed 4-second interval
+  // Use fixed 5-second interval
   const { script, audioDuration } = await request.json();
-  const interval = 4; 
+  const interval = 5; 
 
   try {
     // Calculate how many images we need based on the audio duration and FIXED interval
@@ -44,10 +44,10 @@ export async function POST(request: Request) {
     
     // Remove actualInterval calculation
     
-    // Generate timestamps for each image using fixed 4s interval
+    // Generate timestamps for each image using fixed 5s interval
     const timestamps = Array.from({ length: numImages }, (_, i) => {
-      const startTime = i * interval; // Strictly i * 4
-      const endTime = startTime + interval; // Strictly start + 4
+      const startTime = i * interval; // Strictly i * 5
+      const endTime = startTime + interval; // Strictly start + 5
       return {
         startTime: startTime,
         endTime: endTime, // Note: endTime might exceed audioDuration, formatTimestamp handles display
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       };
     });
 
-    console.log(`Generating ${numImages} image prompts at strict 4-second intervals.`);
+    console.log(`Generating ${numImages} image prompts at strict 5-second intervals.`);
 
     // Implement retry mechanism for API calls
     const maxRetries = 3;
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
                 // System Prompt updated for Character Consistency Protocol & HH:MM:SS format
                 content: `You are an Advanced Visual Storyboard Generator specialized in creating diverse, contextually appropriate image prompts from voiceover scripts, with a strong focus on character consistency. Your task is to:
 
-1.  FIRST: Carefully analyze the provided transcript/audio and segment it into ${numImages} chunks based on the provided timestamps (each representing exactly 4 seconds).
+1.  FIRST: Carefully analyze the provided transcript/audio and segment it into ${numImages} chunks based on the provided timestamps (each representing exactly 5 seconds).
 2.  SECOND: For each segment, identify the distinct core concept being communicated and any characters involved.
 3.  THIRD: Generate a unique, detailed photorealistic image prompt for each segment, adhering strictly to the output format below.
 

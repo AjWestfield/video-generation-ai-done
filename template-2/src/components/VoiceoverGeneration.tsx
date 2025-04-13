@@ -412,8 +412,8 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
       const originalSegments: { start: number; end: number; text: string }[] = transcriptionData.segments;
       if (!originalSegments || originalSegments.length === 0) throw new Error('Transcription returned no segments.');
 
-      // --- NEW: Process segments into 4-second intervals ---
-      setProcessingStatusMessage('Aligning transcript to 4-second intervals...');
+      // --- NEW: Process segments into 5-second intervals ---
+      setProcessingStatusMessage('Aligning transcript to 5-second intervals...');
 
       // Remove the unreliable fallback duration check - use the passed 'duration'
       // if (!audioDuration || audioDuration <= 0) { ... }
@@ -423,8 +423,8 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
          throw new Error("Audio duration is invalid or zero.");
       }
 
-      const interval = 4; // 4 seconds
-      const fourSecondSegments: { start: number; end: number; text: string }[] = [];
+      const interval = 5; // Changed from 4 to 5 seconds
+      const fiveSecondSegments: { start: number; end: number; text: string }[] = [];
       // Use the passed 'duration' for the loop boundary
       for (let currentTime = 0; currentTime < duration; currentTime += interval) {
         const intervalStart = currentTime;
@@ -445,29 +445,28 @@ const VoiceoverGeneration: React.FC<VoiceoverGenerationProps> = ({
           }
         });
 
-        // Only add if there's text for the interval
-        if (intervalText.trim()) {
-          fourSecondSegments.push({
-            start: intervalStart,
-            end: intervalEnd,
-            text: intervalText.trim(),
-          });
-        }
+        // Always add a segment for each interval
+        // If there's no text, use a placeholder
+        fiveSecondSegments.push({
+          start: intervalStart,
+          end: intervalEnd,
+          text: intervalText.trim() || "[Background music/silence]",
+        });
       }
 
-      if (fourSecondSegments.length === 0) {
-         throw new Error("No text segments could be aligned to 4-second intervals.");
+      if (fiveSecondSegments.length === 0) {
+         throw new Error("No text segments could be aligned to 5-second intervals.");
       }
       // --- END NEW ---
 
-      setProcessingStatusMessage('Generating image prompts for 4s intervals...');
+      setProcessingStatusMessage('Generating image prompts for 5s intervals...');
 
-      // 2. Call Prompt Generation API with the NEW 4-second segments
+      // 2. Call Prompt Generation API with the NEW 5-second segments
       const promptGenResponse = await fetch('/api/openrouter/generate-prompts-from-transcript', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Send the processed 4-second segments instead of original ones
-        body: JSON.stringify({ segments: fourSecondSegments }),
+        // Send the processed 5-second segments instead of original ones
+        body: JSON.stringify({ segments: fiveSecondSegments }),
       });
       if (!promptGenResponse.ok) { const errorData = await promptGenResponse.json(); throw new Error(`Prompt generation failed: ${errorData.error || promptGenResponse.statusText}`); }
       const promptGenData = await promptGenResponse.json();

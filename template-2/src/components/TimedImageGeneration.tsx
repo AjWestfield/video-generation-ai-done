@@ -58,7 +58,7 @@ const TimedImageGeneration: React.FC<TimedImageGenerationProps> = ({
   const [generatedImages, setGeneratedImages] = useState<{ timestamp: number; imageBase64: string }[]>([]);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [interval, setInterval] = useState(4); // Default interval in seconds
+  const [interval, setInterval] = useState(5); // Default interval changed from 4 to 5 seconds
   const [focusImage, setFocusImage] = useState<FocusImageType | null>(null);
 
   // Calculate how many images will be generated

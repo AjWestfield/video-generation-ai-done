@@ -34,7 +34,7 @@ async function generateMotionPrompts(originalPrompts: string[]): Promise<string[
   }
 
   const modelId = "google/gemini-2.0-flash-001"; // Use the specified model
-  const systemPrompt = `You are an expert video animator. Given a list of static image prompts describing scenes in sequence, generate a corresponding list of concise MOTION prompts. Each motion prompt should describe the desired camera movement (e.g., slow pan left, zoom in, static shot, tracking shot) and any key character/object actions needed to animate the static scene described in the original prompt, ensuring smooth transitions and continuity between scenes. Focus ONLY on describing the motion/action for a short clip (approx 4 seconds). Output ONLY the motion prompts, one per line, matching the number of input prompts.`;
+  const systemPrompt = `You are an expert video animator. Given a list of static image prompts describing scenes in sequence, generate a corresponding list of concise MOTION prompts. Each motion prompt should describe the desired camera movement (e.g., slow pan left, zoom in, static shot, tracking shot) and any key character/object actions needed to animate the static scene described in the original prompt, ensuring smooth transitions and continuity between scenes. Focus ONLY on describing the motion/action for a short clip (approx 5 seconds). Output ONLY the motion prompts, one per line, matching the number of input prompts.`;
   const userPrompt = `Generate ${originalPrompts.length} motion prompts for the following static image prompts:\n\n${originalPrompts.map((p, i) => `${i + 1}. ${p}`).join('\n')}`;
 
   try {
@@ -204,7 +204,7 @@ async function generateSingleVideoReplicate(
       return {
         url: videoUrl,
         prompt: motionPrompt,
-        duration: 4,
+        duration: 5,
         model: model.id // Include which model generated this
       };
     } else {

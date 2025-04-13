@@ -344,7 +344,7 @@ const ImageGeneration: React.FC<ImageGenerationProps> = ({
     // A more robust way would be to pass the actual interval used during generation
     const interval = editablePrompts.length > 1 
       ? editablePrompts[1].timestamp - editablePrompts[0].timestamp 
-      : 4; // Default to 4s if only one prompt or calculation fails
+      : 5; // Default to 5s if only one prompt or calculation fails
 
     let fileContent = "";
     editablePrompts.forEach((promptData, index) => {

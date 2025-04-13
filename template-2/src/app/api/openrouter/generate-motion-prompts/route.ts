@@ -25,9 +25,9 @@ export async function POST(req: NextRequest) {
     const modelId = model || 'google/gemini-2.0-flash-001';
     
     // Prepare system and user prompts for the model
-    const systemPrompt = `You are an expert video animator. Given a list of static image prompts describing scenes, generate a corresponding list of MOTION prompts for 4-second animation clips. The motion prompts should describe the desired camera movement (e.g., slow pan left, zoom in, static shot, tracking shot) and any key character/object actions needed to animate the static scene described in the original prompt, ensuring smooth transitions and continuity. Focus ONLY on describing the motion/action without repeating the original prompt details. Output ONLY the motion prompts, one per line, matching the number of input prompts.`;
+    const systemPrompt = `You are an expert motion prompt creator for AI image-to-video animation. Given a list of static image descriptions, generate corresponding MOTION prompts for 5-second animation clips. The motion prompts should describe the desired camera movement (e.g., slow pan left, zoom in, static shot, tracking shot) and any key character/object actions needed to animate each static scene. Be concise and focus only on describing motion for a short clip.`;
     
-    const userPrompt = `${context || ''}\n\nGenerate ${prompts.length} motion prompts for the following static image prompts. Each will be used to animate a 4-second video clip:\n\n${prompts.map((p, i) => `${i + 1}. ${p}`).join('\n')}`;
+    const userPrompt = `Generate motion prompts for these static image descriptions. Each will be used to animate a 5-second video clip:\n\n${prompts.map((p, i) => `${i + 1}. ${p}`).join('\n')}`;
 
     console.log(`Generating motion prompts for ${prompts.length} images using ${modelId}`);
     

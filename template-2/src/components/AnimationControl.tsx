@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { Loader2, Wand2 } from 'lucide-react';
 
 interface ImageDataType {
   base64: string; // Expecting base64 data from page.tsx now
@@ -34,46 +35,31 @@ const AnimationControl: React.FC<AnimationControlProps> = ({ images, onAnimate, 
   // Generate motion prompts using OpenRouter's Gemini model
   const generateMotionPrompts = async (originalPrompts: string[]): Promise<string[]> => {
     try {
-      // Process prompts in batches to avoid potential limits
-      const batchSize = 30;
-      const batches = [];
-      
-      for (let i = 0; i < originalPrompts.length; i += batchSize) {
-        batches.push(originalPrompts.slice(i, i + batchSize));
+      // Process all prompts at once
+      console.log(`Generating motion prompts for all ${originalPrompts.length} prompts at once`);
+
+      const response = await fetch('/api/openrouter/generate-motion-prompts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompts: originalPrompts, // Send all prompts
+          model: 'google/gemini-2.0-flash-001',
+          context: "These are static image descriptions that need to be animated into 5-second video clips using the Kling animation model. Generate motion prompts that describe camera movements and actions appropriate for each scene."
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate motion prompts');
       }
-      
-      console.log(`Processing ${batches.length} batches of motion prompts`);
-      
-      const allPrompts = [];
-      
-      for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i];
-        console.log(`Processing batch ${i+1}/${batches.length} with ${batch.length} prompts`);
-        
-        const response = await fetch('/api/openrouter/generate-motion-prompts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompts: batch,
-            model: 'google/gemini-2.0-flash-001',
-            context: "These are static image descriptions that need to be animated into 4-second video clips using the Kling animation model. Generate motion prompts that describe camera movements and actions appropriate for each scene."
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to generate motion prompts');
-        }
-        
-        const data = await response.json();
-        allPrompts.push(...data.motionPrompts);
-      }
-      
-      return allPrompts;
+
+      const data = await response.json();
+      return data.motionPrompts;
+
     } catch (error) {
       console.error('Failed to generate motion prompts:', error);
       // Fallback to simple motion prompts if the API fails
-      return originalPrompts.map(prompt => 
+      return originalPrompts.map(prompt =>
         `Animate this scene with gentle camera motion: ${prompt}`
       );
     }
@@ -86,31 +72,21 @@ const AnimationControl: React.FC<AnimationControlProps> = ({ images, onAnimate, 
     batchSize = 5,
     maxRetries = 3
   ) => {
+    const results: Array<{ url: string; prompt: string; duration: number } | null> = Array(imageDataItems.length).fill(null);
     const totalImages = imageDataItems.length;
-    const results = new Array(totalImages).fill(null);
     let completedCount = 0;
-    let toastId = toast.loading(`Processing animations in batches...`);
     
-    // Split images into batches
-    const batches = [];
-    for (let i = 0; i < totalImages; i += batchSize) {
-      batches.push(Array.from({ length: Math.min(batchSize, totalImages - i) }, (_, j) => i + j));
-    }
+    const toastId = toast.loading(`Processing ${totalImages} animations...`);
     
-    console.log(`Processing ${batches.length} batches of ${batchSize} images each`);
-    
-    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-      const indices = batches[batchIndex];
+    try {
+      // Process all animations at once instead of in batches
+      console.log(`Processing all ${totalImages} images at once`);
       
-      toast.loading(`Processing batch ${batchIndex + 1}/${batches.length}...`, { id: toastId });
-      console.log(`Starting batch ${batchIndex + 1}/${batches.length} with indices: ${indices.join(', ')}`);
-      
-      // Start animations for this batch
-      const batchRequests = await Promise.all(
-        indices.map(async (index) => {
+      // Start animations for all images
+      const allRequests = await Promise.all(
+        imageDataItems.map(async (image, index) => {
           for (let attempt = 0; attempt < maxRetries; attempt++) {
             try {
-              const image = imageDataItems[index];
               const motionPrompt = motionPrompts[index] || `Animate this scene with gentle camera motion: ${image.prompt}`;
               
               const response = await fetch('/api/animate', {
@@ -153,26 +129,26 @@ const AnimationControl: React.FC<AnimationControlProps> = ({ images, onAnimate, 
           throw new Error(`Failed to start animation for image ${index + 1} after ${maxRetries} attempts`);
         })
       ).catch(error => {
-        console.error('Error in batch:', error);
-        return indices.map(index => null);
+        console.error('Error in animations:', error);
+        return Array(totalImages).fill(null);
       });
       
       // Filter out failed requests
-      const validRequests = batchRequests.filter(Boolean) as AnimationRequestType[];
+      const validRequests = allRequests.filter(Boolean) as AnimationRequestType[];
       
       if (validRequests.length === 0) {
-        console.warn(`No valid animation requests in batch ${batchIndex + 1}`);
-        continue;
+        console.warn(`No valid animation requests`);
+        return [];
       }
       
-      // Monitor animations for this batch
-      toast.loading(`Waiting for batch ${batchIndex + 1} animations to complete...`, { id: toastId });
+      // Monitor all animations
+      toast.loading(`Waiting for animations to complete...`, { id: toastId });
       
       // Poll for results
       const statusPollingInterval = 3000; // 3 seconds
       const maxStatusRetries = 60; // Up to 3 minutes per animation
       
-      const batchResults = await Promise.all(
+      const allResults = await Promise.all(
         validRequests.map(async request => {
           for (let statusAttempt = 0; statusAttempt < maxStatusRetries; statusAttempt++) {
             try {
@@ -204,7 +180,7 @@ const AnimationControl: React.FC<AnimationControlProps> = ({ images, onAnimate, 
                   url: statusData.output,
                   prompt: request.motionPrompt,
                   originalPrompt: request.originalPrompt,
-                  duration: 4,
+                  duration: 5,
                   index: request.index
                 };
               } 
@@ -224,8 +200,8 @@ const AnimationControl: React.FC<AnimationControlProps> = ({ images, onAnimate, 
         })
       );
       
-      // Save results from this batch
-      batchResults.forEach(result => {
+      // Save all results
+      allResults.forEach(result => {
         if (result) {
           results[result.index] = {
             url: result.url,
@@ -235,15 +211,14 @@ const AnimationControl: React.FC<AnimationControlProps> = ({ images, onAnimate, 
         }
       });
       
-      // Update progress
-      const currentCompleted = results.filter(Boolean).length;
-      setAnimationProgress(Math.round((currentCompleted / totalImages) * 100));
-      toast.loading(`Completed ${currentCompleted}/${totalImages} animations (${Math.round((currentCompleted / totalImages) * 100)}%)`, { id: toastId });
+      // Update final progress
+      const finalCompleted = results.filter(Boolean).length;
+      setAnimationProgress(Math.round((finalCompleted / totalImages) * 100));
+      toast.loading(`Completed ${finalCompleted}/${totalImages} animations (${Math.round((finalCompleted / totalImages) * 100)}%)`, { id: toastId });
       
-      // Short pause between batches to avoid rate limits
-      if (batchIndex < batches.length - 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
+    } catch (error) {
+      console.error("Error processing animations:", error);
+      toast.error(`Animation processing error: ${error instanceof Error ? error.message : 'Unknown error'}`, { id: toastId });
     }
     
     // Return all results
@@ -272,11 +247,11 @@ const AnimationControl: React.FC<AnimationControlProps> = ({ images, onAnimate, 
         console.warn(`Motion prompts count (${motionPrompts.length}) doesn't match images count (${images.length}). Adjusting...`);
       }
       
-      // Start processing animations in batches
-      toast.loading(`Processing ${images.length} animations in batches...`, { id: loadingToastId });
+      // Start processing all animations at once
+      toast.loading(`Processing all ${images.length} animations...`, { id: loadingToastId });
       
-      // Process in batches of 5 to avoid rate limits
-      const animatedVideos = await processBatchAnimations(images, motionPrompts, 5);
+      // Process all animations at once
+      const animatedVideos = await processBatchAnimations(images, motionPrompts);
       
       // Success message
       const successCount = animatedVideos.length;
@@ -296,12 +271,12 @@ const AnimationControl: React.FC<AnimationControlProps> = ({ images, onAnimate, 
 
   return (
     <div className="my-4 text-center">
-      <button
-        onClick={handleAnimate}
+      <button 
         disabled={isAnimating || disabled || images.length === 0}
+        onClick={handleAnimate}
         className={`
           px-6 py-2 rounded-lg font-medium transition-all duration-300 ease-in-out relative overflow-hidden
-          text-white text-sm md:text-base
+          text-white text-sm md:text-base inline-flex items-center justify-center
           ${isAnimating || disabled || images.length === 0
             ? 'bg-gray-600 cursor-not-allowed text-gray-400'
             : 'bg-gradient-to-r from-[rgba(var(--accent-purple),0.8)] to-[rgba(var(--accent-pink),0.8)] hover:from-[rgba(var(--accent-purple),1)] hover:to-[rgba(var(--accent-pink),1)] button-glow-alt'
@@ -322,7 +297,10 @@ const AnimationControl: React.FC<AnimationControlProps> = ({ images, onAnimate, 
             <span>Generating Videos... {animationProgress}%</span>
             </>
           ) : (
-            'Animate Storyboard (4s Clips)' 
+            <>
+              <Wand2 className="mr-2 h-4 w-4" />
+              Animate Storyboard (5s Clips)
+            </>
           )}
         </span>
       </button>
